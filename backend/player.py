@@ -3,6 +3,7 @@ import os
 import subprocess
 import threading
 import time
+import sys
 from pathlib import Path
 from collections import deque
 from datetime import datetime
@@ -10,6 +11,8 @@ from datetime import datetime
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
+_stderr_output = ""
+_stderr_lock = threading.Lock()
 
 _stats_lock = threading.Lock()
 _current_stats = {
@@ -81,6 +84,26 @@ def _parse_mpv_line(line: str) -> tuple[str, any] | None:
     
     return None
 
+def _read_mpv_stderr(proc: subprocess.Popen):
+    """Read and log mpv stderr in background."""
+    global _stderr_output
+    try:
+        for line_bytes in iter(proc.stderr.readline, b""):
+            if not line_bytes:
+                break
+            try:
+                line = line_bytes.decode("utf-8", errors="ignore").strip()
+            except:
+                continue
+            
+            if line:
+                # Log to terminal
+                print(f"[MPV STDERR] {line}", file=sys.stderr)
+                with _stderr_lock:
+                    _stderr_output += line + "\n"
+    except Exception as e:
+        print(f"[MPV ERROR] Exception reading stderr: {e}", file=sys.stderr)
+
 def _read_mpv_stdout(proc: subprocess.Popen):
     """Background thread to read and parse mpv stdout."""
     global _current_stats, _stats_history
@@ -95,6 +118,10 @@ def _read_mpv_stdout(proc: subprocess.Popen):
             except:
                 continue
             
+            # Log stdout too for debugging
+            if line.strip():
+                print(f"[MPV STDOUT] {line.strip()}", file=sys.stderr)
+            
             parsed = _parse_mpv_line(line)
             if parsed:
                 key, val = parsed
@@ -105,8 +132,8 @@ def _read_mpv_stdout(proc: subprocess.Popen):
                         key: val
                     })
     
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[MPV ERROR] Exception reading stdout: {e}", file=sys.stderr)
     finally:
         with _stats_lock:
             _current_stats = {
@@ -149,10 +176,18 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     )
     _current_file = filepath
     _current_cue_id = cue_id
-
+    
+    # Clear previous stderr
+    global _stderr_output
+    _stderr_output = ""
+    
     stdout_thread = threading.Thread(target=_read_mpv_stdout, args=(_proc,))
     stdout_thread.daemon = True
     stdout_thread.start()
+    
+    stderr_thread = threading.Thread(target=_read_mpv_stderr, args=(_proc,))
+    stderr_thread.daemon = True
+    stderr_thread.start()
 
     if old_proc is not None:
         time.sleep(0.1)
@@ -163,7 +198,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
             pass
 
 def stop() -> None:
-    global _proc, _current_file, _current_cue_id
+    global _proc, _current_file, _current_cue_id, _stderr_output
 
     if _proc is not None:
         try:
@@ -172,11 +207,12 @@ def stop() -> None:
         except subprocess.TimeoutExpired:
             _proc.kill()
             _proc.wait()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[MPV ERROR] Stop exception: {e}", file=sys.stderr)
         _proc = None
         _current_file = None
         _current_cue_id = None
+        _stderr_output = ""
     
     with _stats_lock:
         _current_stats = {
@@ -198,12 +234,16 @@ def status() -> dict:
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
 def debug() -> dict:
+    with _stderr_lock:
+        stderr_output = _stderr_output
+    
     return {
         "proc_running": _proc is not None,
         "proc_poll": _proc.poll() if _proc else None,
         "current_file": _current_file,
         "current_cue_id": _current_cue_id,
         "current_stats": dict(_current_stats),
+        "stderr_output": stderr_output[-5000:] if stderr_output else "",  # Last 5000 chars
     }
 
 def get_stats() -> dict:
