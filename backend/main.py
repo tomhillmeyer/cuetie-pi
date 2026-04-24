@@ -94,4 +94,14 @@ def get_stats():
 def get_debug():
     return player.debug()
 
+@app.get("/api/debug-logs")
+def get_debug_logs():
+    import os
+    log_file = "/tmp/mpv.log"
+    if not os.path.exists(log_file):
+        return {"exists": False, "content": ""}
+    with open(log_file, "r") as f:
+        content = f.read()
+    return {"exists": True, "content": content[-20000:]}
+
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")
