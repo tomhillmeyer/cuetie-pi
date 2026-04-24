@@ -26,7 +26,7 @@ function StatsPanel() {
     }
 
     fetchStats()
-    const interval = setInterval(fetchStats, 1000)
+    const interval = setInterval(fetchStats, 500)
     return () => clearInterval(interval)
   }, [])
 

@@ -1,39 +1,36 @@
+import json
 import os
 import re
+import socket
 import subprocess
 import threading
 import time
 import sys
 from pathlib import Path
 from collections import deque
-from datetime import datetime
 
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
+IPC_SOCKET = "/tmp/mpv-socket"
 
-LOG_FILE = "/tmp/mpv.log"
-
-_stats_lock = threading.Lock()
-_current_stats = {
+STATS_LOCK = threading.Lock()
+_CURRENT_STATS = {
     "playback-time": None,
     "duration": None,
-    "duration-seconds": None,
     "percent-pos": None,
-    "fps-source": None,
+    "fps": None,
+    "dropped-frames": None,
+    "delayed-frames": None,
     "resolution": None,
-    "pixfmt": None,
     "video-codec": None,
     "audio-codec": None,
     "audio-samplerate": None,
-    "dropped-frames": None,
+    "filename": None,
     "media-title": None,
     "vo": None,
     "ao": None,
 }
-
-STATS_BUFFER_SIZE = 100
-_stats_history = deque(maxlen=STATS_BUFFER_SIZE)
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
@@ -46,100 +43,58 @@ def guess_media_type(filepath: str) -> str:
         return "image"
     return "video"
 
-def _parse_log_line(line: str) -> dict | None:
-    """Parse a single line from mpv log output."""
-    result = {}
-    line = line.strip()
-    
-    # Position: AV: 00:00:00 / 00:02:39 (0%) A-V: 0.000 Dropped: 12
-    # or: AV: 00:00:00 / 00:02:39 (0%) A-V: 0.000
-    pos_match = re.search(r'AV:\s+(\d+:\d+:\d+)\s+/\s+(\d+:\d+:\d+)\s+\((\d+)%\)', line)
-    if pos_match:
-        current_time = pos_match.group(1)
-        duration = pos_match.group(2)
-        percent = int(pos_match.group(3))
-        
-        # Convert to seconds
-        parts = current_time.split(':')
-        current_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-        parts = duration.split(':')
-        duration_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-        
-        result['playback-time'] = current_seconds
-        result['duration-seconds'] = duration_seconds
-        result['percent-pos'] = percent
-    
-    # Dropped frames: Dropped: 12
-    dropped_match = re.search(r'Dropped:\s+(\d+)', line)
-    if dropped_match:
-        result['dropped-frames'] = int(dropped_match.group(1))
-    
-    return result if result else None
+def _wait_for_socket(path: str = IPC_SOCKET, timeout: float = 2.0) -> bool:
+    """Wait for the IPC socket to become available."""
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(0.1)
+            s.connect(path)
+            s.close()
+            return True
+        except Exception:
+            time.sleep(0.05)
+    return False
 
-def _read_mpv_log():
-    """Background thread to read and parse mpv log file."""
-    global _current_stats, _stats_history
-    
-    last_size = 0
+def _query_mpv(command: list) -> any:
+    """Send a JSON command to mpv via IPC socket and return the response."""
+    if _proc is None:
+        return None
     
     try:
-        while True:
-            if _proc is None:
-                break
-            
-            try:
-                if os.path.exists(LOG_FILE):
-                    with open(LOG_FILE, 'r') as f:
-                        f.seek(last_size)
-                        new_lines = f.readlines()
-                        last_size = f.tell()
-                        
-                        for line in new_lines:
-                            parsed = _parse_log_line(line)
-                            if parsed:
-                                with _stats_lock:
-                                    _current_stats.update(parsed)
-                                    _stats_history.append({
-                                        "time": time.time(),
-                                        "stats": dict(_current_stats)
-                                    })
-                
-                time.sleep(0.1)
-            except Exception:
-                pass
-    
-    except Exception:
-        pass
-
-def _extract_static_info(lines: list[str]) -> dict:
-    """Extract static info from initial log lines."""
-    info = {}
-    
-    for line in lines:
-        # Video info: ● Video --vid=1 --vlang=eng (h264 1080x1920 60 fps) [default]
-        # Or: ● Image --vid=1 (png 1080x1920)
-        video_match = re.search(r'●\s+(Video|Image)\s+.*?\s+\((\w+)\s+(\d+)x(\d+)\s+(\d+)\s*fps)\)', line)
-        if video_match:
-            info['video-codec'] = video_match.group(2)
-            info['fps-source'] = int(video_match.group(5))
-            info['resolution'] = f"{video_match.group(3)}x{video_match.group(4)}"
-            
-        # VO: [gpu] 1080x1920 yuv420p
-        vo_match = re.search(r'VO:\s+\[(\w+)\]\s+(\d+)x(\d+)\s+(\w+)', line)
-        if vo_match:
-            info['vo'] = vo_match.group(1)
-            if not info.get('resolution'):
-                info['resolution'] = f"{vo_match.group(2)}x{vo_match.group(3)}"
-            info['pixfmt'] = vo_match.group(4)
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        s.connect(IPC_SOCKET)
         
-        # AO: [alsa] 48000Hz stereo 2ch float
-        ao_match = re.search(r'AO:\s+\[(\w+)\]\s+(\d+)Hz\s+(\w+)\s+(\d+)ch', line)
-        if ao_match:
-            info['ao'] = ao_match.group(1)
-            info['audio-samplerate'] = int(ao_match.group(2))
-            info['audio-codec'] = f"{ao_match.group(3)} {ao_match.group(4)}ch"
-    
-    return info
+        request = json.dumps({"command": command, "request_id": 1}) + "\n"
+        s.sendall(request.encode())
+        
+        response = b""
+        while True:
+            try:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                response += chunk
+                if b"\n" in response:
+                    break
+            except socket.timeout:
+                break
+        
+        s.close()
+        
+        if response:
+            data = json.loads(response.decode())
+            if "error" in data and data["error"] == "success":
+                return data.get("data")
+        return None
+    except Exception as e:
+        return None
+
+def _query_property(prop: str) -> any:
+    """Helper to query a single property."""
+    return _query_mpv(["get_property", prop])
 
 def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
     global _proc, _current_file, _current_cue_id
@@ -149,11 +104,18 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if media_type is None:
         media_type = guess_media_type(filepath)
 
-    # Build command with log-file (use = syntax)
+    # Clean up old socket if it exists
+    if os.path.exists(IPC_SOCKET):
+        try:
+            os.remove(IPC_SOCKET)
+        except Exception:
+            pass
+
+    # Build command with IPC socket (use = syntax)
     cmd = [
         "mpv",
         "--fullscreen",
-        f"--log-file={LOG_FILE}",
+        f"--input-ipc-server={IPC_SOCKET}",
         filepath
     ]
 
@@ -164,28 +126,17 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if display:
         env["DISPLAY"] = display
 
-    # Clear log file before starting
-    if os.path.exists(LOG_FILE):
-        os.remove(LOG_FILE)
-    
     # Start mpv
-    _proc = subprocess.Popen(cmd, env=env)
+    _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     _current_file = filepath
     _current_cue_id = cue_id
     
-    # Start log reader thread
-    log_thread = threading.Thread(target=_read_mpv_log)
-    log_thread.daemon = True
-    log_thread.start()
+    # Wait for socket to become available
+    _wait_for_socket(IPC_SOCKET, timeout=1.0)
     
-    # Extract static info from initial lines
-    time.sleep(0.3)
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, 'r') as f:
-            lines = f.readlines()
-            static_info = _extract_static_info(lines)
-            with _stats_lock:
-                _current_stats.update(static_info)
+    # Initialize stats
+    with STATS_LOCK:
+        _CURRENT_STATS["filename"] = filepath
     
     # Kill old process after new one starts
     if old_proc is not None:
@@ -212,23 +163,22 @@ def stop() -> None:
         _current_file = None
         _current_cue_id = None
     
-    with _stats_lock:
-        _current_stats = {
+    # Clean up socket
+    if os.path.exists(IPC_SOCKET):
+        try:
+            os.remove(IPC_SOCKET)
+        except Exception:
+            pass
+    
+    with STATS_LOCK:
+        _CURRENT_STATS.update({
             "playback-time": None,
             "duration": None,
-            "duration-seconds": None,
             "percent-pos": None,
-            "fps-source": None,
-            "resolution": None,
-            "pixfmt": None,
-            "video-codec": None,
-            "audio-codec": None,
-            "audio-samplerate": None,
+            "fps": None,
             "dropped-frames": None,
-            "media-title": None,
-            "vo": None,
-            "ao": None,
-        }
+            "delayed-frames": None,
+        })
 
 def status() -> dict:
     if _proc is None:
@@ -241,11 +191,14 @@ def status() -> dict:
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
 def debug() -> dict:
+    socket_exists = os.path.exists(IPC_SOCKET)
     return {
         "proc_running": _proc is not None,
         "proc_poll": _proc.poll() if _proc else None,
         "current_file": _current_file,
         "current_cue_id": _current_cue_id,
+        "socket_exists": socket_exists,
+        "socket_path": IPC_SOCKET,
     }
 
 def get_stats() -> dict:
@@ -286,40 +239,76 @@ def get_stats() -> dict:
             "dropped-frames": None,
         }
 
-    with _stats_lock:
-        playback_time = _current_stats.get("playback-time")
-        duration_seconds = _current_stats.get("duration-seconds")
-        percent_pos = _current_stats.get("percent-pos")
-        fps = _current_stats.get("fps-source")
-        resolution = _current_stats.get("resolution")
-        pixfmt = _current_stats.get("pixfmt")
-        video_codec = _current_stats.get("video-codec")
-        audio_codec = _current_stats.get("audio-codec")
-        audio_samplerate = _current_stats.get("audio-samplerate")
-        dropped = _current_stats.get("dropped-frames")
-        vo = _current_stats.get("vo")
-        ao = _current_stats.get("ao")
-        media_title = _current_stats.get("media-title")
+    # Query mpv for stats via IPC socket
+    stats = {}
+    
+    # Position and duration
+    time_pos = _query_property("time-pos")
+    duration = _query_property("duration")
+    percent_pos = _query_property("percent-pos")
+    
+    # FPS and frame counts
+    fps = _query_property("estimated-vf-fps")
+    dropped_frames = _query_property("drop-frame-count")
+    delayed_frames = _query_property("vo-delayed-frame-count")
+    
+    # Metadata (only query once at start)
+    with STATS_LOCK:
+        if not _CURRENT_STATS.get("resolution"):
+            video_params = _query_property("video-params")
+            if video_params:
+                _CURRENT_STATS["resolution"] = f"{video_params.get('w', 0)}x{video_params.get('h', 0)}"
+                _CURRENT_STATS["video-codec"] = video_params.get('codec', None)
+            
+            audio_params = _query_property("audio-params")
+            if audio_params:
+                _CURRENT_STATS["audio-samplerate"] = audio_params.get('samplerate', None)
+                _CURRENT_STATS["audio-codec"] = audio_params.get('codec', None)
+            
+            filename = _query_property("filename")
+            if filename:
+                _CURRENT_STATS["filename"] = filename
+            
+            media_title = _query_property("media-title")
+            if media_title:
+                _CURRENT_STATS["media-title"] = media_title
+            
+            vo = _query_property("vo")
+            if vo:
+                _CURRENT_STATS["vo"] = vo
+            
+            ao = _query_property("ao")
+            if ao:
+                _CURRENT_STATS["ao"] = ao
+    
+    with STATS_LOCK:
+        _CURRENT_STATS["playback-time"] = time_pos
+        _CURRENT_STATS["duration"] = duration
+        _CURRENT_STATS["percent-pos"] = percent_pos
+        _CURRENT_STATS["fps"] = fps
+        _CURRENT_STATS["dropped-frames"] = dropped_frames
+        _CURRENT_STATS["delayed-frames"] = delayed_frames
+    
+    resolution = _CURRENT_STATS.get("resolution", "?x?")
     
     return {
         "status": "playing",
         "paused": False,
-        "playback-time": playback_time,
-        "duration": duration_seconds,
+        "playback-time": time_pos,
+        "duration": duration,
         "percent-pos": percent_pos,
         "fps": fps,
-        "vsync": None,
+        "vsync": fps,
         "video-params": {
             "w": resolution.split('x')[0] if resolution else None,
             "h": resolution.split('x')[1] if resolution else None,
-            "pixelformat": pixfmt,
-        } if resolution else {},
+        },
         "audio-params": {
-            "samplerate": audio_samplerate,
-        } if audio_samplerate else {},
-        "filename": _current_file,
-        "media-title": media_title,
-        "video-codec": video_codec,
-        "audio-codec": audio_codec,
-        "dropped-frames": dropped,
+            "samplerate": _CURRENT_STATS.get("audio-samplerate"),
+        },
+        "filename": _CURRENT_STATS.get("filename"),
+        "media-title": _CURRENT_STATS.get("media-title"),
+        "video-codec": _CURRENT_STATS.get("video-codec"),
+        "audio-codec": _CURRENT_STATS.get("audio-codec"),
+        "dropped-frames": dropped_frames,
     }
