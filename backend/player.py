@@ -2,6 +2,7 @@ import json
 import os
 import re
 import socket
+import select
 import subprocess
 import threading
 import time
@@ -13,6 +14,8 @@ _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
 IPC_SOCKET = "/tmp/mpv-socket"
+
+STARTUP_LOGS = ""
 
 STATS_LOCK = threading.Lock()
 _CURRENT_STATS = {
@@ -56,6 +59,34 @@ def _wait_for_socket(path: str = IPC_SOCKET, timeout: float = 2.0) -> bool:
         except Exception:
             time.sleep(0.05)
     return False
+
+def _capture_startup_logs(proc: subprocess.Popen, max_chars: int = 5000):
+    """Capture initial mpv stderr output for debugging."""
+    global STARTUP_LOGS
+    try:
+        # Read stderr for first few seconds
+        import select
+        start = time.time()
+        logs = b""
+        while time.time() - start < 3.0:
+            # Use select to check if data available
+            ready, _, _ = select.select([proc.stderr], [], [], 0.5)
+            if ready:
+                chunk = proc.stderr.read1(4096)
+                if chunk:
+                    logs += chunk
+                else:
+                    break
+            else:
+                # No data, check if process still running
+                if proc.poll() is not None:
+                    break
+            if len(logs) > max_chars:
+                break
+        
+        STARTUP_LOGS = logs.decode('utf-8', errors='ignore')[-max_chars:]
+    except Exception as e:
+        STARTUP_LOGS = f"Error capturing logs: {e}"
 
 def _query_mpv(command: list) -> any:
     """Send a JSON command to mpv via IPC socket and return the response."""
@@ -120,6 +151,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         "--vo=gpu",
         "--video-sync=display-resample",
         "--cache=yes",
+        "--msg-level=all=v",
         filepath
     ]
 
@@ -134,6 +166,13 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     _current_file = filepath
     _current_cue_id = cue_id
+    
+    # Start capturing startup logs
+    global STARTUP_LOGS
+    STARTUP_LOGS = ""
+    log_thread = threading.Thread(target=_capture_startup_logs, args=(_proc,))
+    log_thread.daemon = True
+    log_thread.start()
     
     # Wait for socket to become available
     _wait_for_socket(IPC_SOCKET, timeout=1.0)
@@ -195,7 +234,11 @@ def status() -> dict:
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
 def debug() -> dict:
+    global STARTUP_LOGS
     socket_exists = os.path.exists(IPC_SOCKET)
+    
+    # Get the startup logs
+    logs = STARTUP_LOGS
     
     # Try to get available properties
     available_props = []
@@ -221,8 +264,9 @@ def debug() -> dict:
         "current_cue_id": _current_cue_id,
         "socket_exists": socket_exists,
         "socket_path": IPC_SOCKET,
-        "available_properties": available_props[:50] if available_props else [],  # Limit to 50
+        "available_properties": available_props[:50] if available_props else [],
         "test_properties": test_props,
+        "startup_logs": logs,
     }
 
 def get_stats() -> dict:

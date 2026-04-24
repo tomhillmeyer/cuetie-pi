@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getStats } from '../api'
+import { getStats, getDebug } from '../api'
 
 function formatTime(totalSeconds) {
   if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) return '--:--'
@@ -14,6 +14,7 @@ function formatTime(totalSeconds) {
 
 function StatsPanel() {
   const [stats, setStats] = useState(null)
+  const [debug, setDebug] = useState(null)
   const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => {
@@ -26,10 +27,23 @@ function StatsPanel() {
       }
     }
 
+    const fetchDebug = async () => {
+      try {
+        const d = await getDebug()
+        setDebug(d)
+      } catch (err) {
+        console.error('Failed to fetch debug:', err)
+      }
+    }
+
     fetchStats()
-    const interval = setInterval(fetchStats, 500)
+    fetchDebug()
+    const interval = setInterval(() => {
+      fetchStats()
+      if (showDebug) fetchDebug()
+    }, 500)
     return () => clearInterval(interval)
-  }, [])
+  }, [showDebug])
 
   if (!stats || stats.status === 'stopped') {
     return (
@@ -101,17 +115,30 @@ function StatsPanel() {
       
       {/* Debug toggle */}
       <button 
-        onClick={() => setShowDebug(!showDebug)}
+        onClick={() => {
+          setShowDebug(!showDebug)
+          // Also fetch debug when opening
+          getDebug().then(d => setDebug(d)).catch(console.error)
+        }}
         style={styles.debugButton}
       >
         {showDebug ? '▼ Hide Debug' : '▶ Show Debug'}
       </button>
       
-      {showDebug && (
+      {showDebug && debug && (
+        <div style={styles.debugPanel}>
+          <div style={styles.debugTitle}>Startup Logs</div>
+          <pre style={styles.debugOutput}>
+            {debug.startup_logs || 'No startup logs captured'}
+          </pre>
+        </div>
+      )}
+      
+      {showDebug && debug && (
         <div style={styles.debugPanel}>
           <div style={styles.debugTitle}>Debug Info</div>
           <pre style={styles.debugOutput}>
-            {JSON.stringify(stats, null, 2)}
+            {JSON.stringify(debug.test_properties || {}, null, 2)}
           </pre>
         </div>
       )}
