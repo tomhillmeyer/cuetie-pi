@@ -111,12 +111,15 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         except Exception:
             pass
 
-    # Build command with IPC socket and hardware acceleration
+    # Build command with hardware acceleration for Pi 4
     cmd = [
         "mpv",
         "--fullscreen",
         f"--input-ipc-server={IPC_SOCKET}",
-        "--hwdec=auto",
+        "--hwdec=v4l2m2m",
+        "--vo=gpu",
+        "--video-sync=display-resample",
+        "--cache=yes",
         filepath
     ]
 
