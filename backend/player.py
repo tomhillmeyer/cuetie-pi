@@ -149,11 +149,11 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if media_type is None:
         media_type = guess_media_type(filepath)
 
-    # Build command with log-file
+    # Build command with log-file (use = syntax)
     cmd = [
         "mpv",
         "--fullscreen",
-        "--log-file", LOG_FILE,
+        f"--log-file={LOG_FILE}",
         filepath
     ]
 
