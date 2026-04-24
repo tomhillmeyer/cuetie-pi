@@ -127,4 +127,11 @@ def get_debug_logs():
         content = f.read()
     return {"exists": True, "content": content[-20000:]}
 
+@app.get("/api/transcode-status/{cue_id}")
+def get_transcode_status(cue_id: str):
+    progress = player.get_transcode_progress(cue_id)
+    if progress is None:
+        return {"status": "unknown", "progress": 0, "fps": 0, "time": "00:00:00", "eta": "unknown"}
+    return progress
+
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")

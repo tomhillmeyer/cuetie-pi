@@ -67,3 +67,8 @@ export async function getDebug() {
   const res = await fetch(`${BASE}/debug`)
   return res.json()
 }
+
+export async function getTranscodeStatus(cueId) {
+  const res = await fetch(`${BASE}/transcode-status/${cueId}`)
+  return res.json()
+}

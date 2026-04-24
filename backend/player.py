@@ -15,6 +15,7 @@ _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
 IPC_SOCKET = "/tmp/mpv-socket"
+_TRANSCODING_PROGRESS: dict = {}
 
 STARTUP_LOGS = ""
 
@@ -39,11 +40,30 @@ _CURRENT_STATS = {
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 
+def _ms_to_time(ms: int | float | None) -> str:
+    """Convert milliseconds to HH:MM:SS format."""
+    if ms is None:
+        return "00:00:00"
+    total_seconds = int(ms / 1000)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
 def transcode_video(input_path: str, output_path: str, original_to_delete: str, cue_id: str, cues_file: str, media_dir: str, filename: str, progress_callback=None) -> dict:
     """Transcode a video file using ffmpeg in a background thread."""
     import cues
     
     def run_transcode():
+        # Initialize progress tracking
+        _TRANSCODING_PROGRESS[cue_id] = {
+            "progress": 0,
+            "fps": 0,
+            "time": "00:00:00",
+            "eta": "calculating...",
+            "status": "processing"
+        }
+        
         # Update status to processing
         cues.update_cue_status(cues_file, cue_id, "processing")
         
@@ -58,19 +78,84 @@ def transcode_video(input_path: str, output_path: str, original_to_delete: str, 
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-movflags", "+faststart",
+            "-progress", "pipe:1",  # Output progress to stdout
             "-y",  # Overwrite output
             output_path
         ]
         
         try:
-            # Run ffmpeg
-            result = subprocess.run(
+            # Get duration first for percentage calculation
+            duration_cmd = [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                input_path
+            ]
+            duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
+            total_duration = float(duration_result.stdout.strip()) if duration_result.stdout.strip() else 0
+            
+            # Run ffmpeg with piped output for progress
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
-                text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
             )
             
-            if result.returncode == 0:
+            current_frame = 0
+            current_fps = 0
+            elapsed_ms = 0
+            
+            # Read progress from stdout line by line
+            for line in process.stdout:
+                line = line.strip()
+                if line.startswith("frame="):
+                    try:
+                        current_frame = int(line.split("=")[1])
+                    except:
+                        pass
+                elif line.startswith("fps="):
+                    try:
+                        current_fps = float(line.split("=")[1])
+                    except:
+                        pass
+                elif line.startswith("out_time_ms="):
+                    try:
+                        elapsed_ms = int(line.split("=")[1])
+                    except:
+                        pass
+                elif line.startswith("progress="):
+                    # Calculate progress percentage
+                    progress_pct = 0
+                    if total_duration > 0:
+                        elapsed_seconds = elapsed_ms / 1000000
+                        progress_pct = min(int((elapsed_seconds / total_duration) * 100), 99)
+                    
+                    # Calculate ETA
+                    eta_str = "calculating..."
+                    if current_fps > 0 and total_duration > 0:
+                        elapsed_seconds = elapsed_ms / 1000000
+                        if elapsed_seconds > 0:
+                            remaining_seconds = total_duration - elapsed_seconds
+                            if current_fps > 0:
+                                estimated_remaining_frames = remaining_seconds * current_fps
+                                eta_seconds = estimated_remaining_frames / current_fps if current_fps > 0 else 0
+                                eta_str = _ms_to_time(eta_seconds * 1000)
+                    
+                    # Update progress
+                    _TRANSCODING_PROGRESS[cue_id] = {
+                        "progress": progress_pct,
+                        "fps": round(current_fps, 1),
+                        "time": _ms_to_time(elapsed_ms / 1000),
+                        "eta": eta_str,
+                        "status": "processing"
+                    }
+            
+            process.wait()
+            
+            if process.returncode == 0:
                 # Success - delete original
                 try:
                     if os.path.exists(original_to_delete):
@@ -90,13 +175,39 @@ def transcode_video(input_path: str, output_path: str, original_to_delete: str, 
                 # Update cue with final path and status ready
                 cues.update_cue_path(cues_file, cue_id, final_path)
                 cues.update_cue_status(cues_file, cue_id, "ready")
+                
+                # Mark progress as complete
+                _TRANSCODING_PROGRESS[cue_id] = {
+                    "progress": 100,
+                    "fps": 0,
+                    "time": _ms_to_time(elapsed_ms / 1000) if elapsed_ms > 0 else "00:00:00",
+                    "eta": "00:00:00",
+                    "status": "complete"
+                }
             else:
                 # Failed - update status to error
-                error_msg = result.stderr[:500] if result.stderr else "Unknown error"
+                stderr_output = process.stderr.read() if process.stderr else ""
+                error_msg = stderr_output[:500] if stderr_output else "Unknown error"
                 cues.update_cue_status(cues_file, cue_id, "error", error_msg)
+                
+                _TRANSCODING_PROGRESS[cue_id] = {
+                    "progress": 0,
+                    "fps": 0,
+                    "time": "00:00:00",
+                    "eta": "error",
+                    "status": "error"
+                }
                 
         except Exception as e:
             cues.update_cue_status(cues_file, cue_id, "error", str(e))
+            
+            _TRANSCODING_PROGRESS[cue_id] = {
+                "progress": 0,
+                "fps": 0,
+                "time": "00:00:00",
+                "eta": "error",
+                "status": "error"
+            }
     
     # Start transcode in background thread
     thread = threading.Thread(target=run_transcode)
@@ -104,6 +215,10 @@ def transcode_video(input_path: str, output_path: str, original_to_delete: str, 
     thread.start()
     
     return {"status": "processing", "cue_id": cue_id}
+
+def get_transcode_progress(cue_id: str) -> dict | None:
+    """Get the current transcode progress for a cue."""
+    return _TRANSCODING_PROGRESS.get(cue_id)
 
 def guess_media_type(filepath: str) -> str:
     ext = Path(filepath).suffix.lower()
