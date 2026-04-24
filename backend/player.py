@@ -116,6 +116,18 @@ def status() -> dict:
 
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
+def debug() -> dict:
+    socket_exists = os.path.exists(IPC_SOCKET) if IPC_SOCKET else False
+    
+    return {
+        "proc_running": _proc is not None,
+        "proc_poll": _proc.poll() if _proc else None,
+        "socket_exists": socket_exists,
+        "socket_path": IPC_SOCKET,
+        "current_file": _current_file,
+        "current_cue_id": _current_cue_id,
+    }
+
 def get_stats() -> dict:
     if _proc is None:
         return {

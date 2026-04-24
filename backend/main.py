@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 import player
@@ -88,3 +89,9 @@ def get_status():
 @app.get("/api/stats")
 def get_stats():
     return player.get_stats()
+
+@app.get("/api/debug")
+def get_debug():
+    return player.debug()
+
+app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")
