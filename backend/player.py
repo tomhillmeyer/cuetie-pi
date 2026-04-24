@@ -67,7 +67,6 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         "mpv",
         "--fullscreen",
         "--no-terminal",
-        "--input-ipc-server", IPC_SOCKET,
         filepath
     ]
 
