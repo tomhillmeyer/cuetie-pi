@@ -5,10 +5,11 @@ export async function getCues() {
   return res.json()
 }
 
-export async function uploadMedia(file, onProgress) {
+export async function uploadMedia(file, onProgress, transcoded = false) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', '/api/upload')
+    
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         const percent = Math.round((e.loaded / e.total) * 100)
@@ -25,6 +26,7 @@ export async function uploadMedia(file, onProgress) {
     xhr.onerror = () => reject(new Error('Upload failed'))
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('transcoded', transcoded)
     xhr.send(formData)
   })
 }
@@ -65,10 +67,5 @@ export async function getStats() {
 
 export async function getDebug() {
   const res = await fetch(`${BASE}/debug`)
-  return res.json()
-}
-
-export async function getTranscodeStatus(cueId) {
-  const res = await fetch(`${BASE}/transcode-status/${cueId}`)
   return res.json()
 }

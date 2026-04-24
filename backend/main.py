@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import Request
 from dotenv import load_dotenv
 
 import player
@@ -24,12 +25,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+@app.middleware("http")
+async def add_cross_origin_isolation(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    return response
+
 @app.get("/api/cues")
 def get_cues():
     return cues.load_cues(cues_file)
 
 @app.post("/api/upload")
-async def upload_media(file: UploadFile = File(...)):
+async def upload_media(file: UploadFile = File(...), transcoded: bool = False):
     filename = file.filename
     if not filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -40,29 +48,8 @@ async def upload_media(file: UploadFile = File(...)):
         content = await file.read()
         f.write(content)
 
-    # Determine if video (needs transcode)
     media_type = cues.guess_media_type(safe_name)
-    
-    if media_type == "video":
-        # Start transcode in background
-        temp_output = Path(media_dir) / f".{safe_name}.transcoded.mp4"
-        output_path = str(temp_output)
-        
-        # Add cue with "processing" status
-        cue = cues.add_cue(cues_file, safe_name, media_dir, "processing")
-        
-        # Trigger background transcode (pass original path for cleanup later)
-        player.transcode_video(
-            str(save_path),  # original input
-            output_path,    # temp output
-            str(save_path), # original to delete after success
-            cue["id"],
-            cues_file,
-            media_dir,
-            safe_name
-        )
-    else:
-        cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")
+    cue = cues.add_cue(cues_file, safe_name, media_dir, "ready", transcoded)
     
     return cue
 
@@ -116,22 +103,5 @@ def get_stats():
 @app.get("/api/debug")
 def get_debug():
     return player.debug()
-
-@app.get("/api/debug-logs")
-def get_debug_logs():
-    import os
-    log_file = "/tmp/mpv.log"
-    if not os.path.exists(log_file):
-        return {"exists": False, "content": ""}
-    with open(log_file, "r") as f:
-        content = f.read()
-    return {"exists": True, "content": content[-20000:]}
-
-@app.get("/api/transcode-status/{cue_id}")
-def get_transcode_status(cue_id: str):
-    progress = player.get_transcode_progress(cue_id)
-    if progress is None:
-        return {"status": "unknown", "progress": 0, "fps": 0, "time": "00:00:00", "eta": "unknown"}
-    return progress
 
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")

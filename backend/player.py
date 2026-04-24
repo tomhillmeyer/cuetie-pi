@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shutil
 import socket
 import select
 import subprocess
@@ -15,7 +14,6 @@ _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
 IPC_SOCKET = "/tmp/mpv-socket"
-_TRANSCODING_PROGRESS: dict = {}
 
 STARTUP_LOGS = ""
 
@@ -39,186 +37,6 @@ _CURRENT_STATS = {
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
-
-def _ms_to_time(ms: int | float | None) -> str:
-    """Convert milliseconds to HH:MM:SS format."""
-    if ms is None:
-        return "00:00:00"
-    total_seconds = int(ms / 1000)
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-def transcode_video(input_path: str, output_path: str, original_to_delete: str, cue_id: str, cues_file: str, media_dir: str, filename: str, progress_callback=None) -> dict:
-    """Transcode a video file using ffmpeg in a background thread."""
-    import cues
-    
-    def run_transcode():
-        # Initialize progress tracking
-        _TRANSCODING_PROGRESS[cue_id] = {
-            "progress": 0,
-            "fps": 0,
-            "time": "00:00:00",
-            "eta": "calculating...",
-            "status": "processing"
-        }
-        
-        # Update status to processing
-        cues.update_cue_status(cues_file, cue_id, "processing")
-        
-        cmd = [
-            "ffmpeg",
-            "-i", input_path,
-            "-c:v", "libx264",
-            "-profile:v", "high",
-            "-level:v", "4.1",
-            "-preset", "fast",
-            "-crf", "18",
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            "-movflags", "+faststart",
-            "-progress", "pipe:1",  # Output progress to stdout
-            "-y",  # Overwrite output
-            output_path
-        ]
-        
-        try:
-            # Get duration first for percentage calculation
-            duration_cmd = [
-                "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                input_path
-            ]
-            duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
-            total_duration = float(duration_result.stdout.strip()) if duration_result.stdout.strip() else 0
-            
-            # Run ffmpeg with piped output for progress
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
-            )
-            
-            current_frame = 0
-            current_fps = 0
-            elapsed_ms = 0
-            
-            # Read progress from stdout line by line
-            for line in process.stdout:
-                line = line.strip()
-                if line.startswith("frame="):
-                    try:
-                        current_frame = int(line.split("=")[1])
-                    except:
-                        pass
-                elif line.startswith("fps="):
-                    try:
-                        current_fps = float(line.split("=")[1])
-                    except:
-                        pass
-                elif line.startswith("out_time_ms="):
-                    try:
-                        elapsed_ms = int(line.split("=")[1])
-                    except:
-                        pass
-                elif line.startswith("progress="):
-                    # Calculate progress percentage
-                    progress_pct = 0
-                    if total_duration > 0:
-                        elapsed_seconds = elapsed_ms / 1000000
-                        progress_pct = min(int((elapsed_seconds / total_duration) * 100), 99)
-                    
-                    # Calculate ETA
-                    eta_str = "calculating..."
-                    if current_fps > 0 and total_duration > 0:
-                        elapsed_seconds = elapsed_ms / 1000000
-                        if elapsed_seconds > 0:
-                            remaining_seconds = total_duration - elapsed_seconds
-                            if current_fps > 0:
-                                estimated_remaining_frames = remaining_seconds * current_fps
-                                eta_seconds = estimated_remaining_frames / current_fps if current_fps > 0 else 0
-                                eta_str = _ms_to_time(eta_seconds * 1000)
-                    
-                    # Update progress
-                    _TRANSCODING_PROGRESS[cue_id] = {
-                        "progress": progress_pct,
-                        "fps": round(current_fps, 1),
-                        "time": _ms_to_time(elapsed_ms / 1000),
-                        "eta": eta_str,
-                        "status": "processing"
-                    }
-            
-            process.wait()
-            
-            if process.returncode == 0:
-                # Success - delete original
-                try:
-                    if os.path.exists(original_to_delete):
-                        os.remove(original_to_delete)
-                except:
-                    pass
-                
-                # Rename temp file to final location (replace original name with transcoded version)
-                final_path = os.path.join(media_dir, filename)
-                
-                # If temp output exists, move it to final path
-                if os.path.exists(output_path):
-                    if os.path.exists(final_path):
-                        os.remove(final_path)
-                    shutil.move(output_path, final_path)
-                
-                # Update cue with final path and status ready
-                cues.update_cue_path(cues_file, cue_id, final_path)
-                cues.update_cue_status(cues_file, cue_id, "ready")
-                
-                # Mark progress as complete
-                _TRANSCODING_PROGRESS[cue_id] = {
-                    "progress": 100,
-                    "fps": 0,
-                    "time": _ms_to_time(elapsed_ms / 1000) if elapsed_ms > 0 else "00:00:00",
-                    "eta": "00:00:00",
-                    "status": "complete"
-                }
-            else:
-                # Failed - update status to error
-                stderr_output = process.stderr.read() if process.stderr else ""
-                error_msg = stderr_output[:500] if stderr_output else "Unknown error"
-                cues.update_cue_status(cues_file, cue_id, "error", error_msg)
-                
-                _TRANSCODING_PROGRESS[cue_id] = {
-                    "progress": 0,
-                    "fps": 0,
-                    "time": "00:00:00",
-                    "eta": "error",
-                    "status": "error"
-                }
-                
-        except Exception as e:
-            cues.update_cue_status(cues_file, cue_id, "error", str(e))
-            
-            _TRANSCODING_PROGRESS[cue_id] = {
-                "progress": 0,
-                "fps": 0,
-                "time": "00:00:00",
-                "eta": "error",
-                "status": "error"
-            }
-    
-    # Start transcode in background thread
-    thread = threading.Thread(target=run_transcode)
-    thread.daemon = True
-    thread.start()
-    
-    return {"status": "processing", "cue_id": cue_id}
-
-def get_transcode_progress(cue_id: str) -> dict | None:
-    """Get the current transcode progress for a cue."""
-    return _TRANSCODING_PROGRESS.get(cue_id)
 
 def guess_media_type(filepath: str) -> str:
     ext = Path(filepath).suffix.lower()
@@ -246,12 +64,9 @@ def _capture_startup_logs(proc: subprocess.Popen, max_chars: int = 5000):
     """Capture initial mpv stderr output for debugging."""
     global STARTUP_LOGS
     try:
-        # Read stderr for first few seconds
-        import select
         start = time.time()
         logs = b""
         while time.time() - start < 3.0:
-            # Use select to check if data available
             ready, _, _ = select.select([proc.stderr], [], [], 0.5)
             if ready:
                 chunk = proc.stderr.read1(4096)
@@ -260,7 +75,6 @@ def _capture_startup_logs(proc: subprocess.Popen, max_chars: int = 5000):
                 else:
                     break
             else:
-                # No data, check if process still running
                 if proc.poll() is not None:
                     break
             if len(logs) > max_chars:
@@ -317,14 +131,12 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if media_type is None:
         media_type = guess_media_type(filepath)
 
-    # Clean up old socket if it exists
     if os.path.exists(IPC_SOCKET):
         try:
             os.remove(IPC_SOCKET)
         except Exception:
             pass
 
-    # Build command with hardware acceleration for Pi 4
     cmd = [
         "mpv",
         "--fullscreen",
@@ -344,26 +156,21 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if display:
         env["DISPLAY"] = display
 
-    # Start mpv
     _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     _current_file = filepath
     _current_cue_id = cue_id
     
-    # Start capturing startup logs
     global STARTUP_LOGS
     STARTUP_LOGS = ""
     log_thread = threading.Thread(target=_capture_startup_logs, args=(_proc,))
     log_thread.daemon = True
     log_thread.start()
     
-    # Wait for socket to become available
     _wait_for_socket(IPC_SOCKET, timeout=1.0)
     
-    # Initialize stats
     with STATS_LOCK:
         _CURRENT_STATS["filename"] = filepath
     
-    # Kill old process after new one starts
     if old_proc is not None:
         time.sleep(0.1)
         try:
@@ -388,7 +195,6 @@ def stop() -> None:
         _current_file = None
         _current_cue_id = None
     
-    # Clean up socket
     if os.path.exists(IPC_SOCKET):
         try:
             os.remove(IPC_SOCKET)
@@ -419,17 +225,14 @@ def debug() -> dict:
     global STARTUP_LOGS
     socket_exists = os.path.exists(IPC_SOCKET)
     
-    # Get the startup logs
     logs = STARTUP_LOGS
     
-    # Try to get available properties
     available_props = []
     try:
         available_props = _query_mpv(["get_property_list"])
     except:
         pass
     
-    # Query a few key properties to see values
     test_props = {}
     prop_names = ["time-pos", "duration", "estimated-vf-fps", "drop-frame-count", 
                  "vo-delayed-frame-count", "decoder", "hwdec", "video-codec", "dwidth", "dheight"]
@@ -489,18 +292,12 @@ def get_stats() -> dict:
             "dropped-frames": None,
         }
 
-    # Query mpv for stats via IPC socket
-    stats = {}
-    
-    # Position and duration
     time_pos = _query_property("time-pos")
     duration = _query_property("duration")
     percent_pos = _query_property("percent-pos")
     
-    # FPS and frame counts - try multiple property names
     fps = _query_property("estimated-vf-fps")
     
-    # Try different property names for dropped frames
     dropped_frames = None
     for prop in ["drop-frame-count", "frame-drop-count", "vo-drop-frame-count", "dropped"]:
         dropped_frames = _query_property(prop)
@@ -513,11 +310,9 @@ def get_stats() -> dict:
         if delayed_frames is not None:
             break
     
-    # Query hardware decode status
     hwdec = _query_property("hwdec")
     decoder = _query_property("decoder")
     
-    # Metadata (only query once at start)
     with STATS_LOCK:
         if not _CURRENT_STATS.get("resolution"):
             video_params = _query_property("video-params")
