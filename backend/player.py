@@ -1,4 +1,6 @@
+import json
 import os
+import socket
 import subprocess
 import signal
 import time
@@ -6,6 +8,9 @@ from pathlib import Path
 
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
+_current_cue_id: str | None = None
+
+IPC_SOCKET = "/tmp/mpv.sock"
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
@@ -18,8 +23,40 @@ def guess_media_type(filepath: str) -> str:
         return "image"
     return "video"
 
-def play(filepath: str, media_type: str | None = None, display: str | None = None) -> None:
-    global _proc, _current_file
+def _mpv_command(property_name: str):
+    """Send a command to MPV via IPC socket and return the result."""
+    if _proc is None:
+        return None
+    
+    try:
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
+        sock.connect(IPC_SOCKET)
+        
+        request = json.dumps({"command": ["get_property", property_name], "request_id": 1})
+        sock.send(request.encode() + b"\n")
+        
+        response = b""
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+            if b"\n" in response:
+                break
+        
+        sock.close()
+        
+        if response:
+            data = json.loads(response.decode())
+            if "error" in data and data["error"] == "success":
+                return data.get("data")
+        return None
+    except Exception:
+        return None
+
+def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
+    global _proc, _current_file, _current_cue_id
 
     old_proc = _proc
 
@@ -30,6 +67,7 @@ def play(filepath: str, media_type: str | None = None, display: str | None = Non
         "mpv",
         "--fullscreen",
         "--no-terminal",
+        "--input-ipc-server", IPC_SOCKET,
         filepath
     ]
 
@@ -42,6 +80,7 @@ def play(filepath: str, media_type: str | None = None, display: str | None = Non
 
     _proc = subprocess.Popen(cmd, env=env)
     _current_file = filepath
+    _current_cue_id = cue_id
 
     if old_proc is not None:
         time.sleep(0.1)
@@ -52,7 +91,7 @@ def play(filepath: str, media_type: str | None = None, display: str | None = Non
             pass
 
 def stop() -> None:
-    global _proc, _current_file
+    global _proc, _current_file, _current_cue_id
 
     if _proc is not None:
         try:
@@ -65,13 +104,81 @@ def stop() -> None:
             pass
         _proc = None
         _current_file = None
+        _current_cue_id = None
 
 def status() -> dict:
     if _proc is None:
-        return {"status": "stopped", "filename": None}
+        return {"status": "stopped", "filename": None, "cueId": None}
 
     poll = _proc.poll()
     if poll is not None:
-        return {"status": "stopped", "filename": None}
+        return {"status": "stopped", "filename": None, "cueId": None}
 
-    return {"status": "playing", "filename": _current_file}
+    return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
+
+def get_stats() -> dict:
+    if _proc is None:
+        return {
+            "status": "stopped",
+            "paused": False,
+            "playback-time": None,
+            "duration": None,
+            "percent-pos": None,
+            "fps": None,
+            "video-params": {},
+            "audio-params": {},
+            "filename": None,
+            "media-title": None,
+            "video-codec": None,
+            "audio-codec": None,
+        }
+
+    poll = _proc.poll()
+    if poll is not None:
+        return {
+            "status": "stopped",
+            "paused": False,
+            "playback-time": None,
+            "duration": None,
+            "percent-pos": None,
+            "fps": None,
+            "video-params": {},
+            "audio-params": {},
+            "filename": None,
+            "media-title": None,
+            "video-codec": None,
+            "audio-codec": None,
+        }
+
+    properties = [
+        "pause",
+        "playback-time",
+        "duration",
+        "percent-pos",
+        "fps",
+        "video-params",
+        "audio-params",
+        "filename",
+        "media-title",
+        "video-codec",
+        "audio-codec",
+    ]
+
+    stats = {}
+    for prop in properties:
+        stats[prop] = _mpv_command(prop)
+
+    return {
+        "status": "playing",
+        "paused": stats.get("pause", False),
+        "playback-time": stats.get("playback-time"),
+        "duration": stats.get("duration"),
+        "percent-pos": stats.get("percent-pos"),
+        "fps": stats.get("fps"),
+        "video-params": stats.get("video-params", {}),
+        "audio-params": stats.get("audio-params", {}),
+        "filename": stats.get("filename"),
+        "media-title": stats.get("media-title"),
+        "video-codec": stats.get("video-codec"),
+        "audio-codec": stats.get("audio-codec"),
+    }

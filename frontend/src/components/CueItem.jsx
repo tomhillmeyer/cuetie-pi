@@ -8,12 +8,12 @@ function CueItem({ cue, index, onUpdate }) {
   useEffect(() => {
     const check = async () => {
       const status = await getStatus()
-      setPlaying(status.filename === cue.path)
+      setPlaying(status.cueId === cue.id)
     }
     check()
     const interval = setInterval(check, 2000)
     return () => clearInterval(interval)
-  }, [cue.path])
+  }, [cue.id])
 
   const handlePlay = async () => {
     if (playing) {

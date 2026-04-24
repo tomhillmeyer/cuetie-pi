@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import UploadZone from './components/UploadZone'
 import CueList from './components/CueList'
+import StatsPanel from './components/StatsPanel'
 import { getStatus } from './api'
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
           <span style={styles.nowPlaying}>Now playing: {status.filename}</span>
         )}
       </header>
+      <StatsPanel />
       <UploadZone onUpload={handleUpload} />
       <CueList refreshKey={refreshKey} />
       <button style={styles.stopButton} onClick={handleStop}>

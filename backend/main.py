@@ -73,7 +73,7 @@ def play_cue(cue_id: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Media file not found")
 
-    player.play(str(file_path), cue.get("type"), display)
+    player.play(cue_id, str(file_path), cue.get("type"), display)
     return {"success": True, "cue": cue}
 
 @app.post("/api/stop")
@@ -84,3 +84,7 @@ def stop_playback():
 @app.get("/api/status")
 def get_status():
     return player.status()
+
+@app.get("/api/stats")
+def get_stats():
+    return player.get_stats()
