@@ -62,3 +62,8 @@ export async function getStats() {
   const res = await fetch(`${BASE}/stats`)
   return res.json()
 }
+
+export async function getDebug() {
+  const res = await fetch(`${BASE}/debug`)
+  return res.json()
+}

@@ -14,6 +14,7 @@ function formatTime(totalSeconds) {
 
 function StatsPanel() {
   const [stats, setStats] = useState(null)
+  const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -61,11 +62,11 @@ function StatsPanel() {
           <span style={styles.value}>{vp.w || '?'} x {vp.h || '?'}</span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.label}>File FPS</span>
-          <span style={styles.value}>{stats.fps ? `${stats.fps} fps` : '--'}</span>
+          <span style={styles.label}>Render FPS</span>
+          <span style={styles.value}>{stats.fps ? `${stats.fps.toFixed(1)} fps` : '--'}</span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.label}>Dropped Frames</span>
+          <span style={styles.label}>Dropped</span>
           <span style={{
             ...styles.value,
             color: (stats['dropped-frames'] || 0) > 10 ? '#d32f2f' : '#333'
@@ -75,12 +76,12 @@ function StatsPanel() {
           </span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.label}>Video Codec</span>
-          <span style={styles.value}>{stats['video-codec'] || '--'}</span>
+          <span style={styles.label}>Decoder</span>
+          <span style={styles.value}>{stats.decoder || stats.hwdec || '--'}</span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.label}>Pixel Format</span>
-          <span style={styles.value}>{vp.pixelformat || '--'}</span>
+          <span style={styles.label}>Video Codec</span>
+          <span style={styles.value}>{stats['video-codec'] || '--'}</span>
         </div>
         <div style={styles.stat}>
           <span style={styles.label}>Audio Codec</span>
@@ -97,6 +98,23 @@ function StatsPanel() {
           </span>
         </div>
       </div>
+      
+      {/* Debug toggle */}
+      <button 
+        onClick={() => setShowDebug(!showDebug)}
+        style={styles.debugButton}
+      >
+        {showDebug ? '▼ Hide Debug' : '▶ Show Debug'}
+      </button>
+      
+      {showDebug && (
+        <div style={styles.debugPanel}>
+          <div style={styles.debugTitle}>Debug Info</div>
+          <pre style={styles.debugOutput}>
+            {JSON.stringify(stats, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }
@@ -143,6 +161,37 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+  },
+  debugButton: {
+    marginTop: '12px',
+    padding: '6px 12px',
+    fontSize: '12px',
+    cursor: 'pointer',
+    background: '#eee',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    width: '100%',
+  },
+  debugPanel: {
+    marginTop: '8px',
+    padding: '8px',
+    background: '#222',
+    borderRadius: '4px',
+    maxHeight: '300px',
+    overflow: 'auto',
+  },
+  debugTitle: {
+    fontSize: '12px',
+    color: '#888',
+    marginBottom: '4px',
+  },
+  debugOutput: {
+    fontSize: '11px',
+    color: '#0f0',
+    fontFamily: 'monospace',
+    margin: 0,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-all',
   },
 }
 

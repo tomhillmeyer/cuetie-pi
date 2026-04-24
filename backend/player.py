@@ -111,11 +111,12 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         except Exception:
             pass
 
-    # Build command with IPC socket (use = syntax)
+    # Build command with IPC socket and hardware acceleration
     cmd = [
         "mpv",
         "--fullscreen",
         f"--input-ipc-server={IPC_SOCKET}",
+        "--hwdec=auto",
         filepath
     ]
 
@@ -192,6 +193,24 @@ def status() -> dict:
 
 def debug() -> dict:
     socket_exists = os.path.exists(IPC_SOCKET)
+    
+    # Try to get available properties
+    available_props = []
+    try:
+        available_props = _query_mpv(["get_property_list"])
+    except:
+        pass
+    
+    # Query a few key properties to see values
+    test_props = {}
+    prop_names = ["time-pos", "duration", "estimated-vf-fps", "drop-frame-count", 
+                 "vo-delayed-frame-count", "decoder", "hwdec", "video-codec", "dwidth", "dheight"]
+    for p in prop_names:
+        try:
+            test_props[p] = _query_property(p)
+        except:
+            test_props[p] = None
+    
     return {
         "proc_running": _proc is not None,
         "proc_poll": _proc.poll() if _proc else None,
@@ -199,6 +218,8 @@ def debug() -> dict:
         "current_cue_id": _current_cue_id,
         "socket_exists": socket_exists,
         "socket_path": IPC_SOCKET,
+        "available_properties": available_props[:50] if available_props else [],  # Limit to 50
+        "test_properties": test_props,
     }
 
 def get_stats() -> dict:
@@ -247,10 +268,25 @@ def get_stats() -> dict:
     duration = _query_property("duration")
     percent_pos = _query_property("percent-pos")
     
-    # FPS and frame counts
+    # FPS and frame counts - try multiple property names
     fps = _query_property("estimated-vf-fps")
-    dropped_frames = _query_property("drop-frame-count")
-    delayed_frames = _query_property("vo-delayed-frame-count")
+    
+    # Try different property names for dropped frames
+    dropped_frames = None
+    for prop in ["drop-frame-count", "frame-drop-count", "vo-drop-frame-count", "dropped"]:
+        dropped_frames = _query_property(prop)
+        if dropped_frames is not None:
+            break
+    
+    delayed_frames = None
+    for prop in ["vo-delayed-frame-count", "delayed-frame-count", "delayed"]:
+        delayed_frames = _query_property(prop)
+        if delayed_frames is not None:
+            break
+    
+    # Query hardware decode status
+    hwdec = _query_property("hwdec")
+    decoder = _query_property("decoder")
     
     # Metadata (only query once at start)
     with STATS_LOCK:
@@ -299,6 +335,8 @@ def get_stats() -> dict:
         "percent-pos": percent_pos,
         "fps": fps,
         "vsync": fps,
+        "hwdec": hwdec,
+        "decoder": decoder,
         "video-params": {
             "w": resolution.split('x')[0] if resolution else None,
             "h": resolution.split('x')[1] if resolution else None,
