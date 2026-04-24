@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import socket
 import select
 import subprocess
@@ -38,7 +39,7 @@ _CURRENT_STATS = {
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 
-def transcode_video(input_path: str, output_path: str, original_to_delete: str, cue_id: str, cues_file: str, progress_callback=None) -> dict:
+def transcode_video(input_path: str, output_path: str, original_to_delete: str, cue_id: str, cues_file: str, media_dir: str, filename: str, progress_callback=None) -> dict:
     """Transcode a video file using ffmpeg in a background thread."""
     import cues
     
@@ -70,14 +71,24 @@ def transcode_video(input_path: str, output_path: str, original_to_delete: str, 
             )
             
             if result.returncode == 0:
-                # Success - delete original, rename temp to final
+                # Success - delete original
                 try:
                     if os.path.exists(original_to_delete):
                         os.remove(original_to_delete)
                 except:
                     pass
                 
+                # Rename temp file to final location (replace original name with transcoded version)
+                final_path = os.path.join(media_dir, filename)
+                
+                # If temp output exists, move it to final path
+                if os.path.exists(output_path):
+                    if os.path.exists(final_path):
+                        os.remove(final_path)
+                    shutil.move(output_path, final_path)
+                
                 # Update cue with final path and status ready
+                cues.update_cue_path(cues_file, cue_id, final_path)
                 cues.update_cue_status(cues_file, cue_id, "ready")
             else:
                 # Failed - update status to error

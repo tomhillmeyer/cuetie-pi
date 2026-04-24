@@ -57,7 +57,9 @@ async def upload_media(file: UploadFile = File(...)):
             output_path,    # temp output
             str(save_path), # original to delete after success
             cue["id"],
-            cues_file
+            cues_file,
+            media_dir,
+            safe_name
         )
     else:
         cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")

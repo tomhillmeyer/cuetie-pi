@@ -56,6 +56,17 @@ def update_cue_status(cues_file: str, cue_id: str, status: str, error_message: s
             return True
     return False
 
+def update_cue_path(cues_file: str, cue_id: str, new_path: str) -> bool:
+    cues = load_cues(cues_file)
+    for cue in cues:
+        if cue["id"] == cue_id:
+            cue["path"] = new_path
+            cue["filename"] = Path(new_path).name
+            cue["label"] = cue["filename"]
+            save_cues(cues_file, cues)
+            return True
+    return False
+
 def remove_cue(cues_file: str, cue_id: str) -> bool:
     cues = load_cues(cues_file)
     cues = [c for c in cues if c["id"] != cue_id]
