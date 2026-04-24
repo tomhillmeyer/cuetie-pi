@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { getStats } from '../api'
 
-function formatTime(seconds) {
-  if (seconds === null || seconds === undefined || isNaN(seconds)) return '--:--'
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
+function formatTime(totalSeconds) {
+  if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) return '--:--'
+  const hours = Math.floor(totalSeconds / 3600)
+  const mins = Math.floor((totalSeconds % 3600) / 60)
+  const secs = Math.floor(totalSeconds % 60)
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
@@ -57,12 +61,26 @@ function StatsPanel() {
           <span style={styles.value}>{vp.w || '?'} x {vp.h || '?'}</span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.label}>Framerate</span>
-          <span style={styles.value}>{stats.fps ? `${stats.fps.toFixed(2)} fps` : '--'}</span>
+          <span style={styles.label}>File FPS</span>
+          <span style={styles.value}>{stats.fps ? `${stats.fps} fps` : '--'}</span>
+        </div>
+        <div style={styles.stat}>
+          <span style={styles.label}>Dropped Frames</span>
+          <span style={{
+            ...styles.value,
+            color: (stats['dropped-frames'] || 0) > 10 ? '#d32f2f' : '#333'
+          }}>
+            {stats['dropped-frames'] !== null ? stats['dropped-frames'] : '--'}
+            {(stats['dropped-frames'] || 0) > 10 && ' ⚠️'}
+          </span>
         </div>
         <div style={styles.stat}>
           <span style={styles.label}>Video Codec</span>
           <span style={styles.value}>{stats['video-codec'] || '--'}</span>
+        </div>
+        <div style={styles.stat}>
+          <span style={styles.label}>Pixel Format</span>
+          <span style={styles.value}>{vp.pixelformat || '--'}</span>
         </div>
         <div style={styles.stat}>
           <span style={styles.label}>Audio Codec</span>
@@ -77,14 +95,6 @@ function StatsPanel() {
           <span style={styles.value} title={stats.filename}>
             {stats.filename ? stats.filename.split('/').pop() : '--'}
           </span>
-        </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>Paused</span>
-          <span style={styles.value}>{stats.paused ? 'Yes' : 'No'}</span>
-        </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>Pixel Format</span>
-          <span style={styles.value}>{vp.pixelformat || '--'}</span>
         </div>
       </div>
     </div>
