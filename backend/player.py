@@ -116,7 +116,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         "mpv",
         "--fullscreen",
         f"--input-ipc-server={IPC_SOCKET}",
-        "--hwdec=v4l2m2m",
+        "--hwdec=vaapi",
         "--vo=gpu",
         "--video-sync=display-resample",
         "--cache=yes",
