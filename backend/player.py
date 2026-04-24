@@ -1,6 +1,7 @@
 import os
 import subprocess
 import signal
+import time
 from pathlib import Path
 
 _proc: subprocess.Popen | None = None
@@ -20,7 +21,7 @@ def guess_media_type(filepath: str) -> str:
 def play(filepath: str, media_type: str | None = None, display: str | None = None) -> None:
     global _proc, _current_file
 
-    stop()
+    old_proc = _proc
 
     if media_type is None:
         media_type = guess_media_type(filepath)
@@ -41,6 +42,14 @@ def play(filepath: str, media_type: str | None = None, display: str | None = Non
 
     _proc = subprocess.Popen(cmd, env=env)
     _current_file = filepath
+
+    if old_proc is not None:
+        time.sleep(0.1)
+        try:
+            old_proc.kill()
+            old_proc.wait()
+        except Exception:
+            pass
 
 def stop() -> None:
     global _proc, _current_file

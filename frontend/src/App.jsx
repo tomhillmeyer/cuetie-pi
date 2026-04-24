@@ -27,7 +27,7 @@ function App() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>🎬 Cutie Pi</h1>
+        <h1 style={styles.title}>🎬 Cuetie Pi</h1>
         {status.status === 'playing' && (
           <span style={styles.nowPlaying}>Now playing: {status.filename}</span>
         )}

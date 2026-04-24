@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { playCue, deleteCue, getStatus } from '../api'
+import { playCue, stopPlayback, deleteCue, getStatus } from '../api'
 
 function CueItem({ cue, index, onUpdate }) {
   const [playing, setPlaying] = useState(false)
@@ -16,7 +16,11 @@ function CueItem({ cue, index, onUpdate }) {
   }, [cue.path])
 
   const handlePlay = async () => {
-    await playCue(cue.id)
+    if (playing) {
+      await stopPlayback()
+    } else {
+      await playCue(cue.id)
+    }
   }
 
   const handleDelete = async () => {
@@ -41,8 +45,8 @@ function CueItem({ cue, index, onUpdate }) {
           <span style={styles.handle}>☰</span>
           <span style={styles.number}>{index + 1}.</span>
           <span style={styles.label} title={cue.label}>{cue.label}</span>
-          <button style={styles.playBtn} onClick={handlePlay} title="Play">
-            ▶
+          <button style={playing ? styles.stopBtn : styles.playBtn} onClick={handlePlay} title={playing ? 'Stop' : 'Play'}>
+            {playing ? '⏹' : '▶'}
           </button>
           <button style={styles.deleteBtn} onClick={handleDelete} title="Delete">
             🗑
@@ -84,6 +88,15 @@ const styles = {
     background: '#f0f0f0',
     border: '1px solid #ddd',
     borderRadius: '4px',
+  },
+  stopBtn: {
+    padding: '4px 10px',
+    fontSize: '14px',
+    cursor: 'pointer',
+    background: '#ffebee',
+    border: '1px solid #ef5350',
+    borderRadius: '4px',
+    color: '#c62828',
   },
   deleteBtn: {
     padding: '4px 8px',
