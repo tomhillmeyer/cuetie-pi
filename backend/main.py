@@ -40,7 +40,28 @@ async def upload_media(file: UploadFile = File(...)):
         content = await file.read()
         f.write(content)
 
-    cue = cues.add_cue(cues_file, safe_name, media_dir)
+    # Determine if video (needs transcode)
+    media_type = cues.guess_media_type(safe_name)
+    
+    if media_type == "video":
+        # Start transcode in background
+        temp_output = Path(media_dir) / f".{safe_name}.transcoded.mp4"
+        output_path = str(temp_output)
+        
+        # Add cue with "processing" status
+        cue = cues.add_cue(cues_file, safe_name, media_dir, "processing")
+        
+        # Trigger background transcode (pass original path for cleanup later)
+        player.transcode_video(
+            str(save_path),  # original input
+            output_path,    # temp output
+            str(save_path), # original to delete after success
+            cue["id"],
+            cues_file
+        )
+    else:
+        cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")
+    
     return cue
 
 @app.post("/api/cues/reorder")

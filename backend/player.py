@@ -38,6 +38,62 @@ _CURRENT_STATS = {
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 
+def transcode_video(input_path: str, output_path: str, original_to_delete: str, cue_id: str, cues_file: str, progress_callback=None) -> dict:
+    """Transcode a video file using ffmpeg in a background thread."""
+    import cues
+    
+    def run_transcode():
+        # Update status to processing
+        cues.update_cue_status(cues_file, cue_id, "processing")
+        
+        cmd = [
+            "ffmpeg",
+            "-i", input_path,
+            "-c:v", "libx264",
+            "-profile:v", "high",
+            "-level:v", "4.1",
+            "-preset", "fast",
+            "-crf", "18",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-movflags", "+faststart",
+            "-y",  # Overwrite output
+            output_path
+        ]
+        
+        try:
+            # Run ffmpeg
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                # Success - delete original, rename temp to final
+                try:
+                    if os.path.exists(original_to_delete):
+                        os.remove(original_to_delete)
+                except:
+                    pass
+                
+                # Update cue with final path and status ready
+                cues.update_cue_status(cues_file, cue_id, "ready")
+            else:
+                # Failed - update status to error
+                error_msg = result.stderr[:500] if result.stderr else "Unknown error"
+                cues.update_cue_status(cues_file, cue_id, "error", error_msg)
+                
+        except Exception as e:
+            cues.update_cue_status(cues_file, cue_id, "error", str(e))
+    
+    # Start transcode in background thread
+    thread = threading.Thread(target=run_transcode)
+    thread.daemon = True
+    thread.start()
+    
+    return {"status": "processing", "cue_id": cue_id}
+
 def guess_media_type(filepath: str) -> str:
     ext = Path(filepath).suffix.lower()
     if ext in VIDEO_EXTENSIONS:
