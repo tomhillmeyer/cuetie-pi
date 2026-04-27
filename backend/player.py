@@ -205,17 +205,11 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
 
 import pathlib
 
-LAST_LOADFILE_RESULT: str | None = None
-LAST_BLACK_PATH: str | None = None
-LAST_BLACK_EXISTS: bool = False
-
 def stop() -> None:
-    global _current_file, _current_cue_id, _showing_black, LAST_LOADFILE_RESULT, LAST_BLACK_PATH, LAST_BLACK_EXISTS
+    global _current_file, _current_cue_id, _showing_black
 
     _showing_black = True
     black_path = pathlib.Path(__file__).parent / "black.png"
-    LAST_BLACK_PATH = str(black_path)
-    LAST_BLACK_EXISTS = black_path.exists()
     
     if not black_path.exists():
         print(f"ERROR: black.png not found at {black_path}")
@@ -227,8 +221,6 @@ def stop() -> None:
     _send_command(["set", "image-display-duration", "inf"])
     _send_command(["loadfile", str(black_path), "replace"])
     _send_command(["set", "fullscreen", "yes"])
-
-    LAST_LOADFILE_RESULT = _query_property("filename")
 
     with STATS_LOCK:
         _CURRENT_STATS.update({
@@ -251,7 +243,7 @@ def status() -> dict:
         return {"status": "idle", "filename": None, "cueId": None}
 
     if _showing_black:
-        return {"status": "playing", "filename": "black.png", "cueId": None}
+        return {"status": "idle", "filename": None, "cueId": None}
 
     is_idle = _query_property("idle-active")
     if is_idle:
@@ -260,7 +252,7 @@ def status() -> dict:
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
 def debug() -> dict:
-    global STARTUP_LOGS, LAST_LOADFILE_RESULT, LAST_BLACK_PATH, LAST_BLACK_EXISTS
+    global STARTUP_LOGS
     socket_exists = os.path.exists(IPC_SOCKET)
     
     logs = STARTUP_LOGS
@@ -280,8 +272,6 @@ def debug() -> dict:
         except:
             test_props[p] = None
     
-    current_mpv_filename = _query_property("filename")
-    
     return {
         "proc_running": _proc is not None,
         "proc_poll": _proc.poll() if _proc else None,
@@ -292,10 +282,6 @@ def debug() -> dict:
         "available_properties": available_props[:50] if available_props else [],
         "test_properties": test_props,
         "startup_logs": logs,
-        "last_loadfile_result": LAST_LOADFILE_RESULT,
-        "current_mpv_filename": current_mpv_filename,
-        "last_black_path": LAST_BLACK_PATH,
-        "last_black_exists": LAST_BLACK_EXISTS,
     }
 
 def get_stats() -> dict:
