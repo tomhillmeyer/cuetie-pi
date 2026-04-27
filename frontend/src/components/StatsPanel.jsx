@@ -109,7 +109,12 @@ function StatsPanel() {
         <div className="debugPanel">
           <div className="debugTitle">Loadfile Result</div>
           <pre className="debugOutput">
-            {JSON.stringify({last_loadfile_result: debug.last_loadfile_result, current_mpv_filename: debug.current_mpv_filename}, null, 2)}
+            {JSON.stringify({
+              last_black_path: debug.last_black_path,
+              last_black_exists: debug.last_black_exists,
+              last_loadfile_result: debug.last_loadfile_result,
+              current_mpv_filename: debug.current_mpv_filename
+            }, null, 2)}
           </pre>
         </div>
       )}
