@@ -6,7 +6,6 @@ function CueItem({ cue, index, onUpdate }) {
   const [playing, setPlaying] = useState(false)
   const isProcessing = cue.status === 'processing'
   const isError = cue.status === 'error'
-  const isTranscoded = cue.transcoded
 
   useEffect(() => {
     const check = async () => {
@@ -48,11 +47,6 @@ function CueItem({ cue, index, onUpdate }) {
           <span style={styles.handle}>☰</span>
           <span style={styles.number}>{index + 1}.</span>
           <span style={styles.label} title={cue.label}>{cue.label}</span>
-          {isTranscoded && (
-            <span style={styles.transcodedBadge} title="Transcoded for optimal playback">
-              TC
-            </span>
-          )}
           <button 
             style={playing ? styles.stopBtn : styles.playBtn} 
             onClick={handlePlay} 
@@ -92,15 +86,6 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-  },
-  transcodedBadge: {
-    padding: '2px 6px',
-    fontSize: '10px',
-    fontWeight: 'bold',
-    background: '#e8f5e9',
-    color: '#2e7d32',
-    borderRadius: '4px',
-    border: '1px solid #a5d6a7',
   },
   playBtn: {
     padding: '4px 10px',

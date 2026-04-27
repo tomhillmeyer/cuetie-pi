@@ -28,7 +28,7 @@ def save_cues(cues_file: str, cues: list[Cue]) -> None:
     with open(path, "w") as f:
         json.dump(cues, f, indent=2)
 
-def add_cue(cues_file: str, filename: str, media_dir: str, status: str = "ready", transcoded: bool = False) -> Cue:
+def add_cue(cues_file: str, filename: str, media_dir: str, status: str = "ready") -> Cue:
     cue_id = str(uuid.uuid4())
     cue = {
         "id": cue_id,
@@ -37,7 +37,6 @@ def add_cue(cues_file: str, filename: str, media_dir: str, status: str = "ready"
         "type": guess_media_type(filename),
         "path": f"{media_dir}/{filename}",
         "status": status,
-        "transcoded": transcoded
     }
 
     cues = load_cues(cues_file)

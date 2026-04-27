@@ -126,10 +126,19 @@ def _query_property(prop: str) -> any:
 def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
     global _proc, _current_file, _current_cue_id
 
-    old_proc = _proc
-
     if media_type is None:
         media_type = guess_media_type(filepath)
+
+    if old_proc := _proc:
+        try:
+            old_proc.terminate()
+            old_proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            old_proc.kill()
+            old_proc.wait()
+        except Exception:
+            pass
+        _proc = None
 
     if os.path.exists(IPC_SOCKET):
         try:
@@ -141,11 +150,13 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         "mpv",
         "--fullscreen",
         f"--input-ipc-server={IPC_SOCKET}",
-        "--hwdec=vaapi",
         "--vo=gpu",
-        "--video-sync=display-resample",
+        "--gpu-context=drm",
+        "--gpu-api=opengl",
+        "--opengl-es=yes",
+        "--gpu-dumb-mode=yes",
+        "--hwdec=drm-copy",
         "--cache=yes",
-        "--msg-level=all=v",
         filepath
     ]
 
@@ -156,28 +167,18 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     if display:
         env["DISPLAY"] = display
 
+    global STARTUP_LOGS
+    STARTUP_LOGS = ""
     _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     _current_file = filepath
     _current_cue_id = cue_id
-    
-    global STARTUP_LOGS
-    STARTUP_LOGS = ""
     log_thread = threading.Thread(target=_capture_startup_logs, args=(_proc,))
     log_thread.daemon = True
     log_thread.start()
-    
     _wait_for_socket(IPC_SOCKET, timeout=1.0)
-    
+
     with STATS_LOCK:
         _CURRENT_STATS["filename"] = filepath
-    
-    if old_proc is not None:
-        time.sleep(0.1)
-        try:
-            old_proc.kill()
-            old_proc.wait()
-        except Exception:
-            pass
 
 def stop() -> None:
     global _proc, _current_file, _current_cue_id

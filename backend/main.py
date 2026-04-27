@@ -37,7 +37,7 @@ def get_cues():
     return cues.load_cues(cues_file)
 
 @app.post("/api/upload")
-async def upload_media(file: UploadFile = File(...), transcoded: bool = False):
+async def upload_media(file: UploadFile = File(...)):
     filename = file.filename
     if not filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -49,8 +49,8 @@ async def upload_media(file: UploadFile = File(...), transcoded: bool = False):
         f.write(content)
 
     media_type = cues.guess_media_type(safe_name)
-    cue = cues.add_cue(cues_file, safe_name, media_dir, "ready", transcoded)
-    
+    cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")
+
     return cue
 
 @app.post("/api/cues/reorder")
