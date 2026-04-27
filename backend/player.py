@@ -84,6 +84,23 @@ def _capture_startup_logs(proc: subprocess.Popen, max_chars: int = 5000):
     except Exception as e:
         STARTUP_LOGS = f"Error capturing logs: {e}"
 
+def _send_command(command: list) -> bool:
+    """Send a JSON command to mpv via IPC socket, don't wait for response."""
+    if _proc is None:
+        return False
+
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(0.5)
+        s.connect(IPC_SOCKET)
+
+        request = json.dumps({"command": command, "request_id": 1}) + "\n"
+        s.sendall(request.encode())
+        s.close()
+        return True
+    except Exception:
+        return False
+
 def _query_mpv(command: list) -> any:
     """Send a JSON command to mpv via IPC socket and return the response."""
     if _proc is None:
@@ -123,22 +140,12 @@ def _query_property(prop: str) -> any:
     """Helper to query a single property."""
     return _query_mpv(["get_property", prop])
 
-def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
-    global _proc, _current_file, _current_cue_id
+def _ensure_mpv_started(display: str | None = None) -> None:
+    """Ensure mpv is running in idle mode. If not started, spawn it."""
+    global _proc
 
-    if media_type is None:
-        media_type = guess_media_type(filepath)
-
-    if old_proc := _proc:
-        try:
-            old_proc.terminate()
-            old_proc.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            old_proc.kill()
-            old_proc.wait()
-        except Exception:
-            pass
-        _proc = None
+    if _proc is not None and _proc.poll() is None:
+        return
 
     if os.path.exists(IPC_SOCKET):
         try:
@@ -148,7 +155,8 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
 
     cmd = [
         "mpv",
-        "--fullscreen",
+        "--idle=yes",
+        "--force-window=no",
         f"--input-ipc-server={IPC_SOCKET}",
         "--vo=gpu",
         "--gpu-context=drm",
@@ -157,11 +165,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         "--gpu-dumb-mode=yes",
         "--hwdec=drm-copy",
         "--cache=yes",
-        filepath
     ]
-
-    if media_type == "image":
-        cmd.append("--image-display-duration=inf")
 
     env = os.environ.copy()
     if display:
@@ -170,38 +174,41 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     global STARTUP_LOGS
     STARTUP_LOGS = ""
     _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    _wait_for_socket(IPC_SOCKET, timeout=2.0)
+
+def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
+    global _proc, _current_file, _current_cue_id
+
+    _ensure_mpv_started(display)
     _current_file = filepath
     _current_cue_id = cue_id
-    log_thread = threading.Thread(target=_capture_startup_logs, args=(_proc,))
-    log_thread.daemon = True
-    log_thread.start()
-    _wait_for_socket(IPC_SOCKET, timeout=1.0)
+
+    if media_type is None:
+        media_type = guess_media_type(filepath)
+
+    if media_type == "image":
+        _send_command(["set", "image-display-duration", "inf"])
+    else:
+        _send_command(["set", "image-display-duration", "0"])
+
+    _send_command(["loadfile", filepath, "replace"])
+
+    _send_command(["set", "fullscreen", "yes"])
+
+    global STARTUP_LOGS
+    STARTUP_LOGS = ""
 
     with STATS_LOCK:
         _CURRENT_STATS["filename"] = filepath
 
 def stop() -> None:
-    global _proc, _current_file, _current_cue_id
+    global _current_file, _current_cue_id
 
-    if _proc is not None:
-        try:
-            _proc.terminate()
-            _proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            _proc.kill()
-            _proc.wait()
-        except Exception:
-            pass
-        _proc = None
-        _current_file = None
-        _current_cue_id = None
-    
-    if os.path.exists(IPC_SOCKET):
-        try:
-            os.remove(IPC_SOCKET)
-        except Exception:
-            pass
-    
+    _send_command(["stop"])
+
+    _current_file = None
+    _current_cue_id = None
+
     with STATS_LOCK:
         _CURRENT_STATS.update({
             "playback-time": None,
@@ -214,11 +221,15 @@ def stop() -> None:
 
 def status() -> dict:
     if _proc is None:
-        return {"status": "stopped", "filename": None, "cueId": None}
+        return {"status": "idle", "filename": None, "cueId": None}
 
     poll = _proc.poll()
     if poll is not None:
-        return {"status": "stopped", "filename": None, "cueId": None}
+        return {"status": "idle", "filename": None, "cueId": None}
+
+    is_idle = _query_property("idle-active")
+    if is_idle:
+        return {"status": "idle", "filename": None, "cueId": None}
 
     return {"status": "playing", "filename": _current_file, "cueId": _current_cue_id}
 
@@ -258,7 +269,7 @@ def debug() -> dict:
 def get_stats() -> dict:
     if _proc is None:
         return {
-            "status": "stopped",
+            "status": "idle",
             "paused": False,
             "playback-time": None,
             "duration": None,
@@ -277,7 +288,26 @@ def get_stats() -> dict:
     poll = _proc.poll()
     if poll is not None:
         return {
-            "status": "stopped",
+            "status": "idle",
+            "paused": False,
+            "playback-time": None,
+            "duration": None,
+            "percent-pos": None,
+            "fps": None,
+            "vsync": None,
+            "video-params": {},
+            "audio-params": {},
+            "filename": None,
+            "media-title": None,
+            "video-codec": None,
+            "audio-codec": None,
+            "dropped-frames": None,
+        }
+
+    is_idle = _query_property("idle-active")
+    if is_idle:
+        return {
+            "status": "idle",
             "paused": False,
             "playback-time": None,
             "duration": None,
