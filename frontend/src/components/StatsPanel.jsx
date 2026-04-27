@@ -36,59 +36,54 @@ function StatsPanel() {
 
   return (
     <div className="statsContainer">
-      {isIdle ? (
-        <div className="statsNoMedia">No media playing</div>
-      ) : (
-        <div className="statsGrid">
-          <div className="statsStat">
-            <span className="statsLabel">File</span>
-            <span className="statsValue" title={stats.filename}>
-              {stats.filename ? stats.filename.split('/').pop() : '--'}
-            </span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Position</span>
-            <span className="statsValue">
-              {formatTime(stats['playback-time'])} / {formatTime(stats.duration)}
-            </span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Progress</span>
-            <span className="statsValue">{Math.round(stats['percent-pos'] || 0)}%</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Resolution</span>
-            <span className="statsValue">{vp.w || '?'} x {vp.h || '?'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Render FPS</span>
-            <span className="statsValue">{stats.fps ? `${stats.fps.toFixed(1)} fps` : '--'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Dropped</span>
-            <span className={`statsValue ${(stats['dropped-frames'] || 0) > 10 ? 'statsValueWarning' : ''}`}>
-              {stats['dropped-frames'] !== null ? stats['dropped-frames'] : '--'}
-              {(stats['dropped-frames'] || 0) > 10 && ' ⚠️'}
-            </span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Decoder</span>
-            <span className="statsValue">{stats.decoder || stats.hwdec || '--'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Video Codec</span>
-            <span className="statsValue">{stats['video-codec'] || '--'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Audio Codec</span>
-            <span className="statsValue">{stats['audio-codec'] || '--'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">Sample Rate</span>
-            <span className="statsValue">{ap['samplerate'] ? `${ap.samplerate} Hz` : '--'}</span>
-          </div>
+      <div className="statsGrid">
+        <div className="statsStat">
+          <span className="statsLabel">File</span>
+          <span className="statsValue" title={stats?.filename || ''}>
+            {isIdle ? '--' : (stats.filename ? stats.filename.split('/').pop() : '--')}
+          </span>
         </div>
-      )}
+        <div className="statsStat">
+          <span className="statsLabel">Position</span>
+          <span className="statsValue">
+            {isIdle ? '-- / --' : `${formatTime(stats['playback-time'])} / ${formatTime(stats.duration)}`}
+          </span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Progress</span>
+          <span className="statsValue">{isIdle ? '--' : `${Math.round(stats['percent-pos'] || 0)}%`}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Resolution</span>
+          <span className="statsValue">{isIdle ? '-- x --' : `${vp.w || '?'} x ${vp.h || '?'}`}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">FPS</span>
+          <span className="statsValue">{isIdle ? '--' : `${stats.fps?.toFixed(1) || '--'} fps`}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Dropped</span>
+          <span className={`statsValue ${!isIdle && (stats['dropped-frames'] || 0) > 10 ? 'statsValueWarning' : ''}`}>
+            {isIdle ? '--' : `${stats['dropped-frames'] ?? '--'} ${(stats['dropped-frames'] || 0) > 10 ? '⚠️' : ''}`}
+          </span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Decoder</span>
+          <span className="statsValue">{isIdle ? '--' : (stats.decoder || stats.hwdec || '--')}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Video</span>
+          <span className="statsValue">{isIdle ? '--' : (stats['video-codec'] || '--')}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Audio</span>
+          <span className="statsValue">{isIdle ? '--' : (stats['audio-codec'] || '--')}</span>
+        </div>
+        <div className="statsStat">
+          <span className="statsLabel">Sample</span>
+          <span className="statsValue">{isIdle ? '--' : (ap['samplerate'] ? `${ap.samplerate} Hz` : '--')}</span>
+        </div>
+      </div>
     </div>
   )
 }

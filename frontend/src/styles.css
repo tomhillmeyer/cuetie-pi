@@ -321,9 +321,8 @@ body {
 .stats-row .statsContainer {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
   padding: 8px;
-  min-width: max-content;
+  min-width: 100%;
   min-height: 45px;
   height: auto;
 }
@@ -331,12 +330,7 @@ body {
 .stats-row .statsGrid {
   display: flex;
   flex-wrap: nowrap;
-  gap: 16px;
-}
-
-.stats-row .statsStat {
-  flex-shrink: 0;
-  flex: 1;
-  display: flex;
-  justify-content: center;
+  width: 100%;
+  justify-content: space-between;
+  gap: 24px;
 }
