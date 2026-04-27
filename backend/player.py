@@ -203,11 +203,14 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     with STATS_LOCK:
         _CURRENT_STATS["filename"] = filepath
 
+import pathlib
+
 def stop() -> None:
     global _current_file, _current_cue_id, _showing_black
 
     _showing_black = True
-    _send_command(["loadfile", "black.png", "replace"])
+    black_path = pathlib.Path(__file__).parent / "black.png"
+    _send_command(["loadfile", str(black_path), "replace"])
     _send_command(["set", "image-display-duration", "inf"])
 
     _current_file = "black.png"
@@ -234,7 +237,7 @@ def status() -> dict:
         return {"status": "idle", "filename": None, "cueId": None}
 
     if _showing_black:
-        return {"status": "idle", "filename": None, "cueId": None}
+        return {"status": "playing", "filename": "black.png", "cueId": None}
 
     is_idle = _query_property("idle-active")
     if is_idle:
