@@ -3,4 +3,4 @@ uvicorn[standard]
 python-multipart
 python-dotenv
 python-osc
-python-evdev
+evdev
