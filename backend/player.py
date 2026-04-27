@@ -230,6 +230,8 @@ def stop() -> None:
             "fps": None,
             "dropped-frames": None,
             "delayed-frames": None,
+            "resolution": None,
+            "video-codec": None,
         })
 
 def status() -> dict:
@@ -383,32 +385,31 @@ def get_stats() -> dict:
     decoder = _query_property("decoder")
     
     with STATS_LOCK:
-        if not _CURRENT_STATS.get("resolution"):
-            video_params = _query_property("video-params")
-            if video_params:
-                _CURRENT_STATS["resolution"] = f"{video_params.get('w', 0)}x{video_params.get('h', 0)}"
-                _CURRENT_STATS["video-codec"] = video_params.get('codec', None)
-            
-            audio_params = _query_property("audio-params")
-            if audio_params:
-                _CURRENT_STATS["audio-samplerate"] = audio_params.get('samplerate', None)
-                _CURRENT_STATS["audio-codec"] = audio_params.get('codec', None)
-            
-            filename = _query_property("filename")
-            if filename:
-                _CURRENT_STATS["filename"] = filename
-            
-            media_title = _query_property("media-title")
-            if media_title:
-                _CURRENT_STATS["media-title"] = media_title
-            
-            vo = _query_property("vo")
-            if vo:
-                _CURRENT_STATS["vo"] = vo
-            
-            ao = _query_property("ao")
-            if ao:
-                _CURRENT_STATS["ao"] = ao
+        video_params = _query_property("video-params")
+        if video_params:
+            _CURRENT_STATS["resolution"] = f"{video_params.get('w', 0)}x{video_params.get('h', 0)}"
+            _CURRENT_STATS["video-codec"] = video_params.get('codec', None)
+        
+        audio_params = _query_property("audio-params")
+        if audio_params:
+            _CURRENT_STATS["audio-samplerate"] = audio_params.get('samplerate', None)
+            _CURRENT_STATS["audio-codec"] = audio_params.get('codec', None)
+        
+        filename = _query_property("filename")
+        if filename:
+            _CURRENT_STATS["filename"] = filename
+        
+        media_title = _query_property("media-title")
+        if media_title:
+            _CURRENT_STATS["media-title"] = media_title
+        
+        vo = _query_property("vo")
+        if vo:
+            _CURRENT_STATS["vo"] = vo
+        
+        ao = _query_property("ao")
+        if ao:
+            _CURRENT_STATS["ao"] = ao
     
     with STATS_LOCK:
         _CURRENT_STATS["playback-time"] = time_pos
