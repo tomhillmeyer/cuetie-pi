@@ -15,7 +15,6 @@ function formatTime(totalSeconds) {
 function StatsPanel() {
   const [stats, setStats] = useState(null)
   const [debug, setDebug] = useState(null)
-  const [showDebug, setShowDebug] = useState(false)
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -40,10 +39,10 @@ function StatsPanel() {
     fetchDebug()
     const interval = setInterval(() => {
       fetchStats()
-      if (showDebug) fetchDebug()
+      fetchDebug()
     }, 500)
     return () => clearInterval(interval)
-  }, [showDebug])
+  }, [])
 
   if (!stats || stats.status === 'idle') {
     return (
@@ -110,17 +109,16 @@ function StatsPanel() {
         </div>
       </div>
       
-      <button 
-        onClick={() => {
-          setShowDebug(!showDebug)
-          getDebug().then(d => setDebug(d)).catch(console.error)
-        }}
-        className="debugButton"
-      >
-        {showDebug ? '▼ Hide Debug' : '▶ Show Debug'}
-      </button>
+      {debug && (
+        <div className="debugPanel">
+          <div className="debugTitle">Loadfile Result</div>
+          <pre className="debugOutput">
+            {JSON.stringify({last_loadfile_result: debug.last_loadfile_result, current_mpv_filename: debug.current_mpv_filename}, null, 2)}
+          </pre>
+        </div>
+      )}
       
-      {showDebug && debug && (
+      {debug && (
         <div className="debugPanel">
           <div className="debugTitle">Startup Logs</div>
           <pre className="debugOutput">
@@ -129,7 +127,7 @@ function StatsPanel() {
         </div>
       )}
       
-      {showDebug && debug && (
+      {debug && (
         <div className="debugPanel">
           <div className="debugTitle">Debug Info</div>
           <pre className="debugOutput">
