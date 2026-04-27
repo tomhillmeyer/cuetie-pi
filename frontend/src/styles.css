@@ -37,6 +37,7 @@ body {
   align-items: stretch;
   gap: 12px;
   margin-bottom: 12px;
+  height: 75px;
 }
 
 .header-row > * {
@@ -46,7 +47,7 @@ body {
 
 /* Logo */
 .logo {
-  height: 40px;
+  height: 100%;
   width: auto;
   max-width: 120px;
   object-fit: contain;
@@ -290,6 +291,7 @@ body {
 /* Stats row */
 .stats-row {
   width: 100%;
+  height: 75px;
   margin-bottom: 20px;
   overflow-x: auto;
 }

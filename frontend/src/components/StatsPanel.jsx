@@ -36,11 +36,16 @@ function StatsPanel() {
 
   return (
     <div className="statsContainer">
-      <div className="statsTitle">Stats</div>
       {isIdle ? (
         <div className="statsNoMedia">No media playing</div>
       ) : (
         <div className="statsGrid">
+          <div className="statsStat">
+            <span className="statsLabel">File</span>
+            <span className="statsValue" title={stats.filename}>
+              {stats.filename ? stats.filename.split('/').pop() : '--'}
+            </span>
+          </div>
           <div className="statsStat">
             <span className="statsLabel">Position</span>
             <span className="statsValue">
@@ -81,12 +86,6 @@ function StatsPanel() {
           <div className="statsStat">
             <span className="statsLabel">Sample Rate</span>
             <span className="statsValue">{ap['samplerate'] ? `${ap.samplerate} Hz` : '--'}</span>
-          </div>
-          <div className="statsStat">
-            <span className="statsLabel">File</span>
-            <span className="statsValue" title={stats.filename}>
-              {stats.filename ? stats.filename.split('/').pop() : '--'}
-            </span>
           </div>
         </div>
       )}
