@@ -207,7 +207,7 @@ def stop() -> None:
     global _current_file, _current_cue_id, _showing_black
 
     _showing_black = True
-    _send_command(["loadfile", "media/black.png", "replace"])
+    _send_command(["loadfile", "black.png", "replace"])
     _send_command(["set", "image-display-duration", "inf"])
 
     _current_file = "black.png"
