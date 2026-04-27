@@ -24,15 +24,15 @@ function CueList({ refreshKey }) {
   }
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.heading}>Cue List</h2>
+    <div className="cueListContainer">
+      <h2 className="cueListHeading">Cue List</h2>
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="cues">
           {(provided) => (
             <div
               {...provided.droppableProps}
               ref={provided.innerRef}
-              style={styles.list}
+              className="cueList"
             >
               {cues.map((cue, index) => (
                 <CueItem key={cue.id} cue={cue} index={index} onUpdate={() => getCues().then(setCues)} />
@@ -44,21 +44,6 @@ function CueList({ refreshKey }) {
       </DragDropContext>
     </div>
   )
-}
-
-const styles = {
-  container: {
-    marginTop: '20px',
-  },
-  heading: {
-    fontSize: '16px',
-    marginBottom: '12px',
-  },
-  list: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
 }
 
 export default CueList
