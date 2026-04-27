@@ -4,3 +4,4 @@ python-multipart
 python-dotenv
 python-osc
 evdev
+requests
