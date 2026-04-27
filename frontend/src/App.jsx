@@ -27,22 +27,17 @@ function App() {
 
   return (
     <div className="container">
-      <div className="left-column">
-        <header className="header">
-          <img src="/logo.png" alt="Cutie Pi" className="logo" />
-          {status.status === 'playing' && (
-            <span className="nowPlaying">Now playing: {status.filename}</span>
-          )}
-        </header>
-        <CueList refreshKey={refreshKey} />
-      </div>
-      <div className="right-column">
+      <div className="header-row">
+        <img src="/logo.png" alt="Cutie Pi" className="logo" />
         <UploadZone onUpload={handleUpload} />
-        <StatsPanel />
         <button className="stopButton" onClick={handleStop}>
-          ⏹ Stop Playback
+          ⏹ Stop
         </button>
+        <div className="statsInline">
+          <StatsPanel />
+        </div>
       </div>
+      <CueList refreshKey={refreshKey} />
     </div>
   )
 }

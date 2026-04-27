@@ -25,35 +25,29 @@ body {
 }
 
 .container {
-  max-width: 600px;
-  margin: 0 auto;
+  max-width: 100%;
   padding: 20px;
   min-height: 100vh;
 }
 
-/* Two-column layout for larger screens */
-@media (min-width: 769px) {
-  .container {
-    max-width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    gap: 20px;
-    align-items: start;
-  }
-  
-  .left-column {
-    order: 1;
-  }
-  
-  .right-column {
-    order: 2;
-    position: sticky;
-    top: 20px;
-  }
-  
-  .right-column > *:not(:first-child) {
-    margin-top: 20px;
-  }
+/* Header row - flex layout */
+.header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.header-row > * {
+  flex: 1;
+  min-width: 120px;
+}
+
+.statsInline {
+  flex: 1;
+  min-width: 200px;
 }
 
 /* App */
@@ -237,7 +231,7 @@ body {
 
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
