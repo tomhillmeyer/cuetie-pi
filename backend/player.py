@@ -13,6 +13,7 @@ from collections import deque
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
+_showing_black: bool = False
 IPC_SOCKET = "/tmp/mpv-socket"
 
 STARTUP_LOGS = ""
@@ -177,8 +178,9 @@ def _ensure_mpv_started(display: str | None = None) -> None:
     _wait_for_socket(IPC_SOCKET, timeout=2.0)
 
 def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
-    global _proc, _current_file, _current_cue_id
+    global _proc, _current_file, _current_cue_id, _showing_black
 
+    _showing_black = False
     _ensure_mpv_started(display)
     _current_file = filepath
     _current_cue_id = cue_id
@@ -202,11 +204,13 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         _CURRENT_STATS["filename"] = filepath
 
 def stop() -> None:
-    global _current_file, _current_cue_id
+    global _current_file, _current_cue_id, _showing_black
 
-    _send_command(["stop"])
+    _showing_black = True
+    _send_command(["loadfile", "media/black.png", "replace"])
+    _send_command(["set", "image-display-duration", "inf"])
 
-    _current_file = None
+    _current_file = "black.png"
     _current_cue_id = None
 
     with STATS_LOCK:
@@ -220,11 +224,16 @@ def stop() -> None:
         })
 
 def status() -> dict:
+    global _showing_black
+
     if _proc is None:
         return {"status": "idle", "filename": None, "cueId": None}
 
     poll = _proc.poll()
     if poll is not None:
+        return {"status": "idle", "filename": None, "cueId": None}
+
+    if _showing_black:
         return {"status": "idle", "filename": None, "cueId": None}
 
     is_idle = _query_property("idle-active")
@@ -267,6 +276,8 @@ def debug() -> dict:
     }
 
 def get_stats() -> dict:
+    global _showing_black
+
     if _proc is None:
         return {
             "status": "idle",
@@ -287,6 +298,24 @@ def get_stats() -> dict:
 
     poll = _proc.poll()
     if poll is not None:
+        return {
+            "status": "idle",
+            "paused": False,
+            "playback-time": None,
+            "duration": None,
+            "percent-pos": None,
+            "fps": None,
+            "vsync": None,
+            "video-params": {},
+            "audio-params": {},
+            "filename": None,
+            "media-title": None,
+            "video-codec": None,
+            "audio-codec": None,
+            "dropped-frames": None,
+        }
+
+    if _showing_black:
         return {
             "status": "idle",
             "paused": False,
