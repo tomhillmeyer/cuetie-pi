@@ -74,6 +74,16 @@ async def upload_media(file: UploadFile = File(...)):
 def reorder_cues(body: dict):
     cue_ids = body.get("cueIds", [])
     reordered = cues.reorder_cues(cues_file, cue_ids)
+    
+    # If a cue is currently playing, find its new index
+    if state.current_index > 0:
+        playing_cue_id = player.get_current_playing_cue_id()
+        if playing_cue_id:
+            new_index = next((i for i, c in enumerate(reordered) if c["id"] == playing_cue_id), None)
+            if new_index is not None:
+                state.current_index = new_index + 1  # 1-based index
+    
+    state.num_cues = len(reordered)
     return reordered
 
 @app.delete("/api/cues/{cue_id}")
@@ -100,6 +110,12 @@ def play_cue(cue_id: str):
     file_path = Path(cue["path"])
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Media file not found")
+
+    # Update cue pointer to current cue's index (1-based)
+    cue_index = next((i for i, c in enumerate(all_cues) if c["id"] == cue_id), None)
+    if cue_index is not None:
+        state.current_index = cue_index + 1
+        state.num_cues = len(all_cues)
 
     player.play(cue_id, str(file_path), cue.get("type"), display)
     return {"success": True, "cue": cue}

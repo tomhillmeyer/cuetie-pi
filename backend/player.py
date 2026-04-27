@@ -443,3 +443,19 @@ def get_stats() -> dict:
         "audio-codec": _CURRENT_STATS.get("audio-codec"),
         "dropped-frames": dropped_frames,
     }
+
+def get_current_playing_cue_id() -> str | None:
+    """Get the currently playing cue ID. Returns None if nothing playing."""
+    global _current_cue_id, _showing_black
+    
+    if _showing_black:
+        return None
+    
+    if _proc is None:
+        return None
+    
+    poll = _proc.poll()
+    if poll is not None:
+        return None
+    
+    return _current_cue_id
