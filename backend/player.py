@@ -166,6 +166,8 @@ def _ensure_mpv_started(display: str | None = None) -> None:
         "--gpu-dumb-mode=yes",
         "--hwdec=drm-copy",
         "--cache=yes",
+        "--video-zoom=-1",
+        "--keepaspect=yes",
     ]
 
     env = os.environ.copy()
