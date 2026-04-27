@@ -33,9 +33,9 @@ function App() {
         <button className="stopButton" onClick={handleStop}>
           ⏹ Stop
         </button>
-        <div className="statsInline">
-          <StatsPanel />
-        </div>
+      </div>
+      <div className="stats-row">
+        <StatsPanel />
       </div>
       <CueList refreshKey={refreshKey} />
     </div>
