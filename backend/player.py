@@ -217,16 +217,18 @@ def stop() -> None:
     LAST_BLACK_PATH = str(black_path)
     LAST_BLACK_EXISTS = black_path.exists()
     
-    if black_path.exists():
-        _send_command(["loadfile", str(black_path), "replace"])
-        _send_command(["set", "image-display-duration", "inf"])
-    else:
+    if not black_path.exists():
         print(f"ERROR: black.png not found at {black_path}")
-    
-    LAST_LOADFILE_RESULT = _query_property("filename")
+        return
     
     _current_file = "black.png"
     _current_cue_id = None
+
+    _send_command(["set", "image-display-duration", "inf"])
+    _send_command(["loadfile", str(black_path), "replace"])
+    _send_command(["set", "fullscreen", "yes"])
+
+    LAST_LOADFILE_RESULT = _query_property("filename")
 
     with STATS_LOCK:
         _CURRENT_STATS.update({
