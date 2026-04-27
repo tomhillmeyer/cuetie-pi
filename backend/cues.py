@@ -79,3 +79,23 @@ def reorder_cues(cues_file: str, cue_ids: list[str]) -> list[Cue]:
     reordered = [id_to_cue[cid] for cid in cue_ids if cid in id_to_cue]
     save_cues(cues_file, reordered)
     return reordered
+
+def play_by_index(cues_file: str, index: int, display: str = None) -> Cue | None:
+    """Play cue at 1-based index. Returns the cue or None if invalid index."""
+    import player
+    
+    cues = load_cues(cues_file)
+    if not cues:
+        return None
+    
+    if index < 1 or index > len(cues):
+        return None
+    
+    cue = cues[index - 1]
+    file_path = cue.get("path")
+    
+    if file_path:
+        player.play(cue["id"], file_path, cue.get("type"), display)
+        return cue
+    
+    return None

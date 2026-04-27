@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 import player
 import cues
+import keyboard
 
 load_dotenv()
 
@@ -18,9 +19,25 @@ media_dir = os.getenv("MEDIA_DIR", "./media")
 cues_file = os.getenv("CUES_FILE", "./cues.json")
 display = os.getenv("DISPLAY", ":0")
 
+class AppState:
+    def __init__(self):
+        self.current_index: int = 0
+        self.num_cues: int = 0
+
+state = AppState()
+
+def update_num_cues():
+    all_cues = cues.load_cues(cues_file)
+    state.num_cues = len(all_cues)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Path(media_dir).mkdir(parents=True, exist_ok=True)
+    update_num_cues()
+    try:
+        keyboard.start_keyboard_listener()
+    except Exception as e:
+        print(f"Keyboard listener failed to start: {e}")
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -103,5 +120,69 @@ def get_stats():
 @app.get("/api/debug")
 def get_debug():
     return player.debug()
+
+@app.post("/api/go")
+def go_next():
+    """Advance to and play the next cue. Wraps to cue 1 if at end."""
+    update_num_cues()
+    if state.num_cues == 0:
+        return {"success": False, "error": "No cues in list"}
+    
+    if state.current_index >= state.num_cues:
+        state.current_index = 1
+    else:
+        state.current_index += 1
+    
+    cue = cues.play_by_index(cues_file, state.current_index, display)
+    return {"success": True, "cue": cue, "index": state.current_index}
+
+@app.post("/api/go/{n}")
+def go_to(n: int):
+    """Play cue number n (1-based index)."""
+    update_num_cues()
+    if state.num_cues == 0:
+        return {"success": False, "error": "No cues in list"}
+    
+    if n < 1 or n > state.num_cues:
+        return {"success": False, "error": f"Invalid cue number: {n}"}
+    
+    state.current_index = n
+    cue = cues.play_by_index(cues_file, n, display)
+    return {"success": True, "cue": cue, "index": n}
+
+@app.post("/api/previous")
+def go_previous():
+    """Play the previous cue. Stays at cue 1 if already at cue 1."""
+    update_num_cues()
+    if state.num_cues == 0:
+        return {"success": False, "error": "No cues in list"}
+    
+    if state.current_index <= 1:
+        state.current_index = 1
+    else:
+        state.current_index -= 1
+    
+    cue = cues.play_by_index(cues_file, state.current_index, display)
+    return {"success": True, "cue": cue, "index": state.current_index}
+
+@app.get("/api/current")
+def get_current():
+    """Return the current cue number and metadata."""
+    update_num_cues()
+    if state.num_cues == 0:
+        return {"index": 0, "cue": None}
+    
+    if state.current_index == 0:
+        return {"index": 0, "cue": None}
+    
+    all_cues = cues.load_cues(cues_file)
+    cue = all_cues[state.current_index - 1] if state.current_index <= len(all_cues) else None
+    return {"index": state.current_index, "cue": cue}
+
+@app.post("/api/reset")
+def reset_pointer():
+    """Reset cue pointer to 0 without playing."""
+    state.current_index = 0
+    return {"success": True, "index": 0}
 
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")
