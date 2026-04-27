@@ -44,28 +44,23 @@ function StatsPanel() {
     return () => clearInterval(interval)
   }, [])
 
-  if (!stats || stats.status === 'idle') {
-    return (
-      <div className="statsContainer">
-        <div className="statsTitle">Stats</div>
-        <div className="statsNoMedia">No media playing</div>
-      </div>
-    )
-  }
-
-  const vp = stats['video-params'] || {}
-  const ap = stats['audio-params'] || {}
+  const vp = stats?.['video-params'] || {}
+  const ap = stats?.['audio-params'] || {}
+  const isIdle = !stats || stats.status === 'idle'
 
   return (
     <div className="statsContainer">
       <div className="statsTitle">Stats</div>
-      <div className="statsGrid">
-        <div className="statsStat">
-          <span className="statsLabel">Position</span>
-          <span className="statsValue">
-            {formatTime(stats['playback-time'])} / {formatTime(stats.duration)}
-          </span>
-        </div>
+      {isIdle ? (
+        <div className="statsNoMedia">No media playing</div>
+      ) : (
+        <div className="statsGrid">
+          <div className="statsStat">
+            <span className="statsLabel">Position</span>
+            <span className="statsValue">
+              {formatTime(stats['playback-time'])} / {formatTime(stats.duration)}
+            </span>
+          </div>
         <div className="statsStat">
           <span className="statsLabel">Progress</span>
           <span className="statsValue">{Math.round(stats['percent-pos'] || 0)}%</span>
@@ -107,7 +102,8 @@ function StatsPanel() {
             {stats.filename ? stats.filename.split('/').pop() : '--'}
           </span>
         </div>
-      </div>
+        </div>
+      )}
       
       {debug && (
         <div className="debugPanel">
