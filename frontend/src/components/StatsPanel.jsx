@@ -42,16 +42,12 @@ function StatsPanel() {
           <span className="statsValue" title={stats?.filename || ''}>
             {isIdle ? '--' : (stats.filename ? stats.filename.split('/').pop() : '--')}
           </span>
-        </div>
+</div>
         <div className="statsStat">
           <span className="statsLabel">Position</span>
           <span className="statsValue">
             {isIdle ? '-- / --' : `${formatTime(stats['playback-time'])} / ${formatTime(stats.duration)}`}
           </span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Progress</span>
-          <span className="statsValue">{isIdle ? '--' : `${Math.round(stats['percent-pos'] || 0)}%`}</span>
         </div>
         <div className="statsStat">
           <span className="statsLabel">Resolution</span>
@@ -71,18 +67,12 @@ function StatsPanel() {
           <span className="statsLabel">Decoder</span>
           <span className="statsValue">{isIdle ? '--' : (stats.decoder || stats.hwdec || '--')}</span>
         </div>
-        <div className="statsStat">
-          <span className="statsLabel">Video</span>
-          <span className="statsValue">{isIdle ? '--' : (stats['video-codec'] || '--')}</span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Audio</span>
-          <span className="statsValue">{isIdle ? '--' : (stats['audio-codec'] || '--')}</span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Sample</span>
-          <span className="statsValue">{isIdle ? '--' : (ap['samplerate'] ? `${ap.samplerate} Hz` : '--')}</span>
-        </div>
+      </div>
+      <div className="progressBar">
+        <div 
+          className="progressFill" 
+          style={{ width: isIdle ? '0%' : `${Math.round(stats['percent-pos'] || 0)}%` }}
+        />
       </div>
     </div>
   )
