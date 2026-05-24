@@ -1,8 +1,7 @@
-# Cutie Pi
+# Cuetie Pi
 
 A self-hosted media playback server for Raspberry Pi and similar devices. Upload images and videos through a web interface, build a cue list, and trigger playback on the device's connected display.
 
-**Perfect for**: Live events, shows, church/media presentations
 
 ---
 
