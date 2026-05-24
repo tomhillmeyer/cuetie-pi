@@ -1,0 +1,15 @@
+[Unit]
+Description=Cutie Pi Media Server
+After=network.target multi-user.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/cuetie-pi/backend
+ExecStart=/home/pi/cuetie-pi/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+User=pi
+SupplementaryGroups=video render
+
+[Install]
+WantedBy=multi-user.target
