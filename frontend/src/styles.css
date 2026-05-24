@@ -40,7 +40,7 @@ body {
   height: 75px;
 }
 
-.header-row > * {
+.header-row>* {
   flex: 1 1 0;
   min-width: 150px;
   height: 100%;
@@ -60,7 +60,7 @@ body {
   height: 100%;
 }
 
-.header-row > * {
+.header-row>* {
   flex: 1 1 0;
   min-width: 150px;
 }
@@ -149,6 +149,9 @@ body {
   border-radius: 4px;
   color: var(--text-primary);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stopBtn {
@@ -210,6 +213,26 @@ body {
   border-radius: 4px;
   overflow: hidden;
   margin-top: 8px;
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.progressRow .progressBar {
+  flex: 1;
+  margin-top: 0;
+}
+
+.positionValue {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .progressFill {
@@ -322,7 +345,7 @@ body {
 
 .stats-row .statsContainer {
   display: flex;
-  flex-wrap: nowrap;
+  flex-direction: column;
   padding: 8px;
   min-width: 100%;
   min-height: 45px;
@@ -331,8 +354,8 @@ body {
 
 .stats-row .statsGrid {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   width: 100%;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
 }

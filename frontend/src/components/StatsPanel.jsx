@@ -30,52 +30,51 @@ function StatsPanel() {
     return () => clearInterval(interval)
   }, [])
 
-  const vp = stats?.['video-params'] || {}
-  const ap = stats?.['audio-params'] || {}
-  const isIdle = !stats || stats.status === 'idle'
+   const vp = stats?.['video-params'] || {}
+   const ap = stats?.['audio-params'] || {}
+   const isIdle = !stats || stats.status === 'idle'
 
-  return (
-    <div className="statsContainer">
-      <div className="statsGrid">
-        <div className="statsStat">
-          <span className="statsLabel">File</span>
-          <span className="statsValue" title={stats?.filename || ''}>
-            {isIdle ? '--' : (stats.filename ? stats.filename.split('/').pop() : '--')}
-          </span>
+   return (
+     <div className="statsContainer">
+       <div className="statsGrid">
+         <div className="statsStat">
+           <span className="statsLabel">File</span>
+           <span className="statsValue" title={stats?.filename || ''}>
+             {isIdle ? '--' : (stats.filename ? stats.filename.split('/').pop() : '--')}
+           </span>
 </div>
-        <div className="statsStat">
-          <span className="statsLabel">Position</span>
-          <span className="statsValue">
-            {isIdle ? '-- / --' : `${formatTime(stats['playback-time'])} / ${formatTime(stats.duration)}`}
-          </span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Resolution</span>
-          <span className="statsValue">{isIdle ? '-- x --' : `${vp.w || '?'} x ${vp.h || '?'}`}</span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">FPS</span>
-          <span className="statsValue">{isIdle ? '--' : `${stats.fps?.toFixed(1) || '--'} fps`}</span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Dropped</span>
-          <span className={`statsValue ${!isIdle && (stats['dropped-frames'] || 0) > 10 ? 'statsValueWarning' : ''}`}>
-            {isIdle ? '--' : `${stats['dropped-frames'] ?? '--'} ${(stats['dropped-frames'] || 0) > 10 ? '⚠️' : ''}`}
-          </span>
-        </div>
-        <div className="statsStat">
-          <span className="statsLabel">Decoder</span>
-          <span className="statsValue">{isIdle ? '--' : (stats.decoder || stats.hwdec || '--')}</span>
-        </div>
-      </div>
-      <div className="progressBar">
-        <div 
-          className="progressFill" 
-          style={{ width: isIdle ? '0%' : `${Math.round(stats['percent-pos'] || 0)}%` }}
-        />
-      </div>
-    </div>
-  )
-}
+         <div className="statsStat">
+           <span className="statsLabel">Resolution</span>
+           <span className="statsValue">{isIdle ? '-- x --' : `${vp.w || '?'} x ${vp.h || '?'}`}</span>
+         </div>
+         <div className="statsStat">
+           <span className="statsLabel">FPS</span>
+           <span className="statsValue">{isIdle ? '--' : `${stats.fps?.toFixed(1) || '--'} fps`}</span>
+         </div>
+         <div className="statsStat">
+           <span className="statsLabel">Dropped</span>
+           <span className={`statsValue ${!isIdle && (stats['dropped-frames'] || 0) > 10 ? 'statsValueWarning' : ''}`}>
+             {isIdle ? '--' : `${stats['dropped-frames'] ?? '--'} ${(stats['dropped-frames'] || 0) > 10 ? '⚠️' : ''}`}
+           </span>
+         </div>
+         <div className="statsStat">
+           <span className="statsLabel">Decoder</span>
+           <span className="statsValue">{isIdle ? '--' : (stats.decoder || stats.hwdec || '--')}</span>
+         </div>
+       </div>
+       <div className="progressRow">
+         <span className="positionValue">
+           {isIdle ? '-- / --' : `${formatTime(stats['playback-time'])} / ${formatTime(stats.duration)}`}
+         </span>
+         <div className="progressBar">
+           <div 
+             className="progressFill" 
+             style={{ width: isIdle ? '0%' : `${Math.round(stats['percent-pos'] || 0)}%` }}
+           />
+         </div>
+       </div>
+     </div>
+   )
+ }
 
 export default StatsPanel

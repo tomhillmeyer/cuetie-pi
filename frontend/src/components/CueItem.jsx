@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import { playCue, stopPlayback, deleteCue, getStatus } from '../api'
+import { MdDelete } from "react-icons/md";
+import { FaPlay, FaStop } from "react-icons/fa";
+import { FaDeleteLeft } from "react-icons/fa6";
+
+
+
 
 function CueItem({ cue, index, onUpdate }) {
   const [playing, setPlaying] = useState(false)
@@ -50,15 +56,15 @@ function CueItem({ cue, index, onUpdate }) {
           <span className="cueHandle">☰</span>
           <span className="cueNumber">{index + 1}.</span>
           <span className="cueLabel" title={cue.label}>{cue.label}</span>
-          <button 
-            className={playing ? 'stopBtn' : 'playBtn'} 
-            onClick={handlePlay} 
+          <button
+            className={playing ? 'stopBtn' : 'playBtn'}
+            onClick={handlePlay}
             title={playing ? 'Stop' : 'Play'}
           >
-            {playing ? '⏹' : '▶'}
+            {playing ? <FaStop /> : <FaPlay />}
           </button>
           <button className="deleteBtn" onClick={handleDelete} title="Delete">
-            🗑
+            <FaDeleteLeft />
           </button>
         </div>
       )}
