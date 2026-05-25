@@ -126,6 +126,15 @@ body {
   background: #3a1a1a;
 }
 
+.cueItemSelected {
+  border-color: #ff0066;
+}
+
+.cueItemPlaying.cueItemSelected {
+  background: #1a3a1a;
+  border-color: #ff0066;
+}
+
 .cueHandle {
   cursor: grab;
   color: var(--text-muted);

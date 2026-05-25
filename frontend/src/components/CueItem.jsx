@@ -5,7 +5,7 @@ import { MdDelete } from "react-icons/md";
 import { FaPlay, FaStop } from "react-icons/fa";
 import { FaDeleteLeft, FaRepeat } from "react-icons/fa6";
 
-function CueItem({ cue, index, onUpdate, onToggleLoop }) {
+function CueItem({ cue, index, onUpdate, onToggleLoop, selected, onSelect }) {
   const [playing, setPlaying] = useState(false)
   const isProcessing = cue.status === 'processing'
   const isError = cue.status === 'error'
@@ -36,7 +36,13 @@ function CueItem({ cue, index, onUpdate, onToggleLoop }) {
     let className = 'cueItem'
     if (playing) className += ' cueItemPlaying'
     else if (isError) className += ' cueItemError'
+    if (selected) className += ' cueItemSelected'
     return className
+  }
+
+  const handleClick = (e) => {
+    if (e.target.closest('button')) return
+    onSelect?.(cue.id)
   }
 
   return (
@@ -45,11 +51,12 @@ function CueItem({ cue, index, onUpdate, onToggleLoop }) {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
           className={getItemClass()}
           style={provided.draggableProps.style}
+          onClick={handleClick}
+          data-cue-item={cue.id}
         >
-          <span className="cueHandle">☰</span>
+          <span className="cueHandle" {...provided.dragHandleProps}>☰</span>
           <span className="cueNumber">{index + 1}</span>
           <span className="cueLabel" title={cue.label}>{cue.label}</span>
           {cue.type === 'video' && (

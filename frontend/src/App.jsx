@@ -14,6 +14,17 @@ function App() {
     setStatus({ status: msg.status, filename: msg.filename })
   }), [])
 
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape' && !e.target.closest('input, textarea')) {
+        fetch('/api/stop', { method: 'POST' })
+        setRefreshKey(k => k + 1)
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [])
+
   const handleUpload = () => {
     setRefreshKey(k => k + 1)
   }
