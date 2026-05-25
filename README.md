@@ -136,8 +136,3 @@ frontend/
 └── vite.config.js
 ```
 
----
-
-## License
-
-MIT
