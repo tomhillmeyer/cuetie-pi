@@ -149,28 +149,37 @@ On a Raspberry Pi with a USB keyboard:
 - mpv opens in a window (not true fullscreen, but fine for development)
 - `DISPLAY` can be left unset in `.env`
 
-### Raspberry Pi 4/5 (Headless/DRM Mode)
+### Raspberry Pi 4/5 (Weston/Wayland)
+
+Uses Weston Wayland compositor for reliable display output (solves PNG-to-PNG image switching issues seen under raw DRM).
 
 **Requirements**:
 - Pi OS Lite (64-bit) recommended
-- No X11/Wayland desktop running
-- User in `video` and `render` groups
+- `weston` and `seatd` packages installed
+- User in `video`, `render`, and `tty` groups
 - `gpu_mem=256` in `/boot/firmware/config.txt`
+- Weston systemd service starts before cuetie-pi
 - `SupplementaryGroups=video render` in systemd service
 
 **mpv flags used**:
 ```
 --vo=gpu
---gpu-context=drm
+--gpu-context=wayland
 --gpu-api=opengl
 --opengl-es=yes
 --gpu-dumb-mode=yes
 --hwdec=drm-copy
 ```
 
+**Environment variables for Wayland** (set by systemd service, or manually):
+```
+WAYLAND_DISPLAY=wayland-1
+XDG_RUNTIME_DIR=/tmp/weston-runtime
+```
+
 ### Ubuntu Server (headless, no desktop)
 
-Similar to Raspberry Pi. Use DRM mode.
+Similar to Raspberry Pi. Install `weston` and `seatd`, configure as described above.
 
 ---
 
@@ -212,14 +221,15 @@ sudo apt install mpv
 - Check that `backend/media/` directory exists and is writable
 - Check terminal for error messages
 
-### Video/Image doesn't display (headless Linux/DRM)
+### Video/Image doesn't display (headless Linux/Weston)
 
 #### Common Causes:
 
-1. **Desktop environment running** - X11/Wayland claims the DRM device
-2. **User not in groups** - `pi` user needs `video` and `render` groups
+1. **Weston not running** - Check `systemctl status weston`
+2. **User not in groups** - `pi` user needs `video`, `render`, and `tty` groups
 3. **systemd missing groups** - Service needs `SupplementaryGroups=video render`
 4. **GPU memory too low** - Need `gpu_mem=256`
+5. **Wayland socket mismatch** - `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` must match between weston and cuetie-pi services
 
 #### Debug Steps:
 
@@ -227,8 +237,14 @@ sudo apt install mpv
 # Check groups
 groups pi
 
-# Check if mpv works directly on the Pi
-mpv --vo=gpu --gpu-context=drm /path/to/video.mp4
+# Check that Weston is running
+systemctl status weston
+
+# Check Weston logs
+journalctl -u weston -f
+
+# Check if mpv works via Weston (run in weston's XDG_RUNTIME_DIR)
+sudo -u pi XDG_RUNTIME_DIR=/tmp/weston-runtime mpv --vo=gpu --gpu-context=wayland /path/to/video.mp4
 
 # Check service logs
 journalctl -u cuetie-pi -f
@@ -237,16 +253,9 @@ journalctl -u cuetie-pi -f
 curl http://pi-ip:8000/api/debug
 ```
 
-### PNG-to-PNG Image Switching Issues
+### PNG-to-PNG Image Switching
 
-If static images don't update when switching between them:
-
-**Hypothesis**: With `--vo=gpu --gpu-context=drm`, videos continuously decode new frames which triggers DRM page flips. Static images only show one frame, and the page flip may not happen properly.
-
-**Things that help**:
-1. Delete and re-upload the PNG files (fresh uploads often work)
-2. Restart the backend service: `sudo systemctl restart cuetie-pi`
-3. Video→PNG and PNG→video transitions typically work fine
+This was the original motivation for migrating from DRM to Weston. The issue is now fixed — Weston's compositor properly handles buffer swaps even when consecutive images have identical dimensions.
 
 ### Service Won't Start
 

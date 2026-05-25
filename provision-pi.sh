@@ -18,6 +18,8 @@ echo "==> Step 1: Installing/updating system packages..."
 $SSH "echo '$PI_PASS' | sudo -S apt update && \
   echo '$PI_PASS' | sudo -S apt install -y \
     mpv \
+    weston \
+    seatd \
     python3 \
     python3-venv \
     python3-pip \
@@ -25,9 +27,14 @@ $SSH "echo '$PI_PASS' | sudo -S apt update && \
     libevdev2"
 
 echo ""
-echo "==> Step 2: Ensuring user '$PI_USER' is in DRM groups (video/render)..."
+echo "==> Step 1b: Enabling seatd service..."
+$SSH "echo '$PI_PASS' | sudo -S systemctl enable --now seatd"
+
+echo ""
+echo "==> Step 2: Ensuring user '$PI_USER' is in required groups (video/render/tty/seat)..."
 $SSH "echo '$PI_PASS' | sudo -S usermod -aG video \$USER && \
-      echo '$PI_PASS' | sudo -S usermod -aG render \$USER"
+      echo '$PI_PASS' | sudo -S usermod -aG render \$USER && \
+      echo '$PI_PASS' | sudo -S usermod -aG tty \$USER"
 $SSH "groups"
 
 echo ""
@@ -88,28 +95,50 @@ $SSH "cd $PI_PATH/backend && \
         echo 'PORT=8000' > .env && \
         echo 'MEDIA_DIR=./media' >> .env && \
         echo 'CUES_FILE=./cues.json' >> .env && \
-        echo 'DISPLAY=:0' >> .env; \
+        echo 'DISPLAY=:0' >> .env && \
+        echo 'WAYLAND_DISPLAY=wayland-1' >> .env && \
+        echo 'XDG_RUNTIME_DIR=/tmp/weston-runtime' >> .env; \
       else \
         echo 'Existing .env found - preserving it.'; \
       fi && \
       mkdir -p media"
 
 echo ""
-echo "==> Step 7: Installing systemd service..."
+echo "==> Step 7: Installing Weston Wayland compositor..."
+$SSH "echo '$PI_PASS' | sudo -S mkdir -p /etc/xdg/weston"
+$SSHPASS rsync -avz \
+  --rsh="ssh -o StrictHostKeyChecking=no" \
+  backend/weston.ini "$PI_USER@$PI_HOST:$PI_PATH/backend/weston.ini"
+$SSH "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/weston.ini /etc/xdg/weston/weston.ini"
+
+$SSHPASS rsync -avz \
+  --rsh="ssh -o StrictHostKeyChecking=no" \
+  backend/weston.service "$PI_USER@$PI_HOST:$PI_PATH/backend/weston.service"
+$SSH "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/weston.service /etc/systemd/system/weston.service && \
+      echo '$PI_PASS' | sudo -S systemctl daemon-reload && \
+      echo '$PI_PASS' | sudo -S systemctl enable weston"
+
+echo ""
+echo "==> Step 8: Installing cuetie-pi systemd service..."
 $SSHPASS rsync -avz \
   --rsh="ssh -o StrictHostKeyChecking=no" \
   backend/cuetie-pi.service "$PI_USER@$PI_HOST:$PI_PATH/backend/cuetie-pi.service"
 
 $SSH "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/cuetie-pi.service /etc/systemd/system/cuetie-pi.service && \
       echo '$PI_PASS' | sudo -S systemctl daemon-reload && \
-      echo '$PI_PASS' | sudo -S systemctl enable cuetie-pi && \
-      echo '$PI_PASS' | sudo -S systemctl restart cuetie-pi"
+      echo '$PI_PASS' | sudo -S systemctl enable cuetie-pi"
+
+echo ""
+echo "==> Step 9: Starting services (Weston first, then cuetie-pi)..."
+$SSH "echo '$PI_PASS' | sudo -S systemctl start weston"
+sleep 3
+$SSH "echo '$PI_PASS' | sudo -S systemctl start cuetie-pi"
 
 sleep 2
 
 echo ""
-echo "==> Step 8: Verifying service status..."
-$SSH "systemctl is-active cuetie-pi"
+echo "==> Step 10: Verifying services..."
+$SSH "systemctl is-active weston && systemctl is-active cuetie-pi"
 
 echo ""
 echo "======================================"

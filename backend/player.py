@@ -1,12 +1,10 @@
 import json
 import os
 import socket
-import select
 import subprocess
 import threading
 import time
 from pathlib import Path
-from collections import deque
 
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
@@ -59,30 +57,6 @@ def _wait_for_socket(path: str = IPC_SOCKET, timeout: float = 3.0) -> bool:
         except Exception:
             time.sleep(0.05)
     return False
-
-
-def _capture_startup_logs(proc: subprocess.Popen, max_chars: int = 5000):
-    global STARTUP_LOGS
-    try:
-        start = time.time()
-        logs = b""
-        while time.time() - start < 3.0:
-            ready, _, _ = select.select([proc.stderr], [], [], 0.5)
-            if ready:
-                chunk = proc.stderr.read1(4096)
-                if chunk:
-                    logs += chunk
-                else:
-                    break
-            else:
-                if proc.poll() is not None:
-                    break
-            if len(logs) > max_chars:
-                break
-
-        STARTUP_LOGS = logs.decode('utf-8', errors='ignore')[-max_chars:]
-    except Exception as e:
-        STARTUP_LOGS = f"Error capturing logs: {e}"
 
 
 def _send_command(command: list) -> bool:
@@ -203,7 +177,7 @@ def _ensure_mpv_started(display: str | None = None) -> None:
         "--gpu-dumb-mode=yes",
         f"--input-ipc-server={IPC_SOCKET}",
         "--vo=gpu",
-        "--gpu-context=drm",
+        "--gpu-context=wayland",
         "--gpu-api=opengl",
         "--opengl-es=yes",
         "--hwdec=drm-copy",
@@ -214,18 +188,18 @@ def _ensure_mpv_started(display: str | None = None) -> None:
     if display:
         env["DISPLAY"] = display
 
-    global STARTUP_LOGS
-    STARTUP_LOGS = ""
-    _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    _wait_for_socket(IPC_SOCKET, timeout=3.0)
+    _proc = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    _wait_for_socket(IPC_SOCKET, timeout=5.0)
 
 
-def _load_via_mpv(filepath: str, display: str | None = None) -> bool:
+def _load_via_mpv(filepath: str, media_type: str | None = None, display: str | None = None) -> bool:
     for attempt in range(3):
         _ensure_mpv_started(display)
         if _send_commands_sequential([
+            ["set", "image-display-duration", "inf" if media_type == "image" else "0"],
             ["loadfile", filepath, "replace"],
             ["set", "fullscreen", "yes"],
+            ["set", "pause", "no"],
         ]):
             return True
         print(f"[player] mpv loadfile attempt {attempt + 1} failed, retrying...")
@@ -241,7 +215,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     _current_file = filepath
     _current_cue_id = cue_id
 
-    _load_via_mpv(filepath, display)
+    _load_via_mpv(filepath, media_type, display)
 
     global STARTUP_LOGS, _CURRENT_STATS
     STARTUP_LOGS = ""

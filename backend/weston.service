@@ -1,0 +1,18 @@
+[Unit]
+Description=Weston Wayland Compositor
+After=network.target seatd.service
+Wants=seatd.service
+
+[Service]
+Type=simple
+User=pi
+SupplementaryGroups=video render
+ExecStartPre=/bin/mkdir -p /tmp/weston-runtime
+ExecStartPre=/bin/chmod 0700 /tmp/weston-runtime
+Environment=XDG_RUNTIME_DIR=/tmp/weston-runtime
+ExecStart=/usr/bin/weston
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -19,7 +19,7 @@ Then open `http://192.168.1.100:8000` in your browser.
 ### First-Time Pi Setup
 
 ```bash
-# Full provisioning (installs packages, sets up DRM permissions, systemd)
+# Full provisioning (installs packages, sets up Weston + systemd)
 PI_HOST=192.168.1.100 ./provision-pi.sh
 ```
 
@@ -77,13 +77,14 @@ curl -X POST http://pi-ip:8000/api/reset
 
 ---
 
-## Pi Requirements (DRM Headless Mode)
+## Pi Requirements (Weston/Wayland)
 
-For the best performance without a desktop environment:
+Uses the Weston Wayland compositor for reliable display output (solves PNG-to-PNG image switching issues seen under raw DRM).
 
-1. **User groups**: `pi` must be in `video` and `render` groups
-2. **GPU memory**: `gpu_mem=256` in `/boot/firmware/config.txt`
-3. **No X11/Wayland** running - it would claim the DRM device
+1. **System packages**: `weston` and `seatd` (installed by provision-pi.sh)
+2. **User groups**: `pi` must be in `video`, `render`, and `tty` groups
+3. **GPU memory**: `gpu_mem=256` in `/boot/firmware/config.txt`
+4. **Service ordering**: Weston starts first, then cuetie-pi connects to its Wayland socket
 
 The `provision-pi.sh` script handles this setup automatically.
 

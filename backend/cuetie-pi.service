@@ -1,6 +1,7 @@
 [Unit]
 Description=Cutie Pi Media Server
-After=network.target multi-user.target
+After=network.target multi-user.target weston.service
+Wants=weston.service
 
 [Service]
 Type=simple
@@ -10,6 +11,8 @@ Restart=always
 RestartSec=5
 User=pi
 SupplementaryGroups=video render
+Environment=WAYLAND_DISPLAY=wayland-1
+Environment=XDG_RUNTIME_DIR=/tmp/weston-runtime
 
 [Install]
 WantedBy=multi-user.target

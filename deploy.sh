@@ -26,9 +26,42 @@ sshpass -p "$PI_PASS" rsync -avz --delete \
   --exclude='.DS_Store' \
   ./ "$PI_USER@$PI_HOST:$PI_PATH/"
 
-echo "==> Restarting backend service..."
+echo "==> Syncing weston config..."
 sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
-  "echo '$PI_PASS' | sudo -S systemctl daemon-reload && sudo -S systemctl restart cuetie-pi"
+  "echo '$PI_PASS' | sudo -S mkdir -p /etc/xdg/weston"
+sshpass -p "$PI_PASS" rsync -avz \
+  --rsh="ssh -o StrictHostKeyChecking=no" \
+  backend/weston.ini "$PI_USER@$PI_HOST:$PI_PATH/backend/weston.ini"
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/weston.ini /etc/xdg/weston/weston.ini"
+
+echo "==> Syncing weston systemd unit..."
+sshpass -p "$PI_PASS" rsync -avz \
+  --rsh="ssh -o StrictHostKeyChecking=no" \
+  backend/weston.service "$PI_USER@$PI_HOST:$PI_PATH/backend/weston.service"
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/weston.service /etc/systemd/system/weston.service"
+
+echo "==> Syncing cuetie-pi systemd unit..."
+sshpass -p "$PI_PASS" rsync -avz \
+  --rsh="ssh -o StrictHostKeyChecking=no" \
+  backend/cuetie-pi.service "$PI_USER@$PI_HOST:$PI_PATH/backend/cuetie-pi.service"
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S cp $PI_PATH/backend/cuetie-pi.service /etc/systemd/system/cuetie-pi.service"
+
+echo "==> Ensuring seatd is installed and running..."
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S apt install -y seatd && \
+   echo '$PI_PASS' | sudo -S systemctl enable --now seatd"
+
+echo "==> Restarting services..."
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S systemctl daemon-reload"
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S systemctl restart weston"
+sleep 2
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S systemctl restart cuetie-pi"
 
 sleep 2
 
