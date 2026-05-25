@@ -2,7 +2,7 @@
 set -e
 
 PI_USER="${PI_USER:-pi}"
-PI_PASS="${PI_PASS:-raspberry}"
+PI_PASS="${PI_PASS:?Set PI_PASS (e.g. PI_PASS=raspberry ./deploy.sh)}"
 PI_HOST="${PI_HOST:?Set PI_HOST (e.g. PI_HOST=192.168.1.50 ./deploy.sh)}"
 PI_PATH="${PI_PATH:-/home/pi/cuetie-pi}"
 
