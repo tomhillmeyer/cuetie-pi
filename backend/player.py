@@ -10,6 +10,7 @@ _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
 _showing_black: bool = False
+_showing_splash: bool = False
 IPC_SOCKET = "/tmp/mpv-socket"
 
 STARTUP_LOGS = ""
@@ -208,9 +209,33 @@ def _load_via_mpv(filepath: str, media_type: str | None = None, display: str | N
     return False
 
 
-def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
-    global _current_file, _current_cue_id, _showing_black
+def show_splash(display: str | None = None) -> None:
+    global _current_file, _current_cue_id, _showing_black, _showing_splash
 
+    import generate_splash
+
+    splash_path = Path(__file__).parent / "splash.png"
+    logo_path = Path(__file__).parent.parent / "frontend" / "dist" / "logo.png"
+
+    generate_splash.generate(str(logo_path), str(splash_path))
+
+    _showing_splash = True
+    _showing_black = False
+    _current_file = "splash.png"
+    _current_cue_id = None
+
+    _ensure_mpv_started(display)
+    _send_commands_sequential([
+        ["set", "image-display-duration", "inf"],
+        ["loadfile", str(splash_path), "replace"],
+        ["set", "fullscreen", "yes"],
+    ])
+
+
+def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
+    global _current_file, _current_cue_id, _showing_black, _showing_splash
+
+    _showing_splash = False
     _showing_black = False
     _current_file = filepath
     _current_cue_id = cue_id
@@ -253,9 +278,9 @@ def stop() -> None:
 
 
 def status() -> dict:
-    global _showing_black
+    global _showing_black, _showing_splash
 
-    if _showing_black:
+    if _showing_black or _showing_splash:
         return {"status": "idle", "filename": None, "cueId": None}
 
     if _proc is None:
@@ -310,9 +335,9 @@ def debug() -> dict:
 
 
 def get_stats() -> dict:
-    global _showing_black
+    global _showing_black, _showing_splash
 
-    if _showing_black:
+    if _showing_black or _showing_splash:
         return _idle_stats()
 
     if _proc is None:

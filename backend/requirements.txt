@@ -5,3 +5,5 @@ python-dotenv
 python-osc
 evdev
 requests
+Pillow
+qrcode[pil]

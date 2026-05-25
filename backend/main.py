@@ -83,6 +83,12 @@ async def lifespan(app: FastAPI):
         keyboard.start_keyboard_listener()
     except Exception as e:
         print(f"Keyboard listener failed to start: {e}")
+
+    try:
+        player.show_splash(display)
+    except Exception as e:
+        print(f"[splash] Failed to show splash screen: {e}")
+
     yield
     if _stats_task is not None and not _stats_task.done():
         _stats_task.cancel()
