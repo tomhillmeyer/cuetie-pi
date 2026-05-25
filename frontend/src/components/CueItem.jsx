@@ -1,27 +1,18 @@
 import { useState, useEffect } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { playCue, stopPlayback, deleteCue, getStatus } from '../api'
+import { playCue, stopPlayback, deleteCue, subscribeStatus } from '../api'
 import { MdDelete } from "react-icons/md";
 import { FaPlay, FaStop } from "react-icons/fa";
 import { FaDeleteLeft } from "react-icons/fa6";
-
-
-
 
 function CueItem({ cue, index, onUpdate }) {
   const [playing, setPlaying] = useState(false)
   const isProcessing = cue.status === 'processing'
   const isError = cue.status === 'error'
 
-  useEffect(() => {
-    const check = async () => {
-      const status = await getStatus()
-      setPlaying(status.cueId === cue.id)
-    }
-    check()
-    const interval = setInterval(check, 2000)
-    return () => clearInterval(interval)
-  }, [cue.id])
+  useEffect(() => subscribeStatus(status => {
+    setPlaying(status.cueId === cue.id)
+  }), [cue.id])
 
   const handlePlay = async () => {
     if (playing) {

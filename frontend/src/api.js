@@ -69,3 +69,59 @@ export async function getDebug() {
   const res = await fetch(`${BASE}/debug`)
   return res.json()
 }
+
+let ws = null
+const statusListeners = new Set()
+const statsListeners = new Set()
+let reconnectTimer = null
+
+function connectStatusWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  ws = new WebSocket(`${proto}//${location.host}/ws/status`)
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data)
+    if (msg.type === 'stats') {
+      statsListeners.forEach(f => f(msg))
+    } else if (msg.type === 'status') {
+      statusListeners.forEach(f => f(msg))
+    }
+  }
+  ws.onclose = () => {
+    ws = null
+    clearTimeout(reconnectTimer)
+    reconnectTimer = setTimeout(connectStatusWS, 1000)
+  }
+}
+
+function ensureConnected() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    ws?.close()
+    connectStatusWS()
+  }
+}
+
+function maybeDisconnect() {
+  if (statusListeners.size === 0 && statsListeners.size === 0) {
+    ws?.close()
+    ws = null
+    clearTimeout(reconnectTimer)
+  }
+}
+
+export function subscribeStatus(fn) {
+  statusListeners.add(fn)
+  ensureConnected()
+  return () => {
+    statusListeners.delete(fn)
+    maybeDisconnect()
+  }
+}
+
+export function subscribeStats(fn) {
+  statsListeners.add(fn)
+  ensureConnected()
+  return () => {
+    statsListeners.delete(fn)
+    maybeDisconnect()
+  }
+}

@@ -1,9 +1,10 @@
 import os
 import json
+import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
@@ -27,11 +28,51 @@ class AppState:
 
 
 state = AppState()
+connected_clients: set[WebSocket] = set()
+_stats_task: asyncio.Task | None = None
 
 
 def update_num_cues():
     all_cues = cues.load_cues(cues_file)
     state.num_cues = len(all_cues)
+
+
+async def _push_stats_loop():
+    try:
+        while True:
+            await asyncio.sleep(0.5)
+            stats = player.get_stats()
+            msg = {"type": "stats", **stats}
+            dead = set()
+            for ws in connected_clients:
+                try:
+                    await ws.send_json(msg)
+                except Exception:
+                    dead.add(ws)
+            connected_clients.difference_update(dead)
+    except asyncio.CancelledError:
+        pass
+
+
+async def broadcast_status():
+    global _stats_task
+    status = player.status()
+    msg = {"type": "status", **status}
+    dead = set()
+    for ws in connected_clients:
+        try:
+            await ws.send_json(msg)
+        except Exception:
+            dead.add(ws)
+    connected_clients.difference_update(dead)
+
+    if status["status"] == "playing":
+        if _stats_task is None or _stats_task.done():
+            _stats_task = asyncio.create_task(_push_stats_loop())
+    else:
+        if _stats_task is not None and not _stats_task.done():
+            _stats_task.cancel()
+            _stats_task = None
 
 
 @asynccontextmanager
@@ -43,6 +84,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Keyboard listener failed to start: {e}")
     yield
+    if _stats_task is not None and not _stats_task.done():
+        _stats_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -54,6 +97,21 @@ async def add_cross_origin_isolation(request: Request, call_next):
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     return response
+
+
+@app.websocket("/ws/status")
+async def ws_status(websocket: WebSocket):
+    await websocket.accept()
+    connected_clients.add(websocket)
+    try:
+        status = player.status()
+        await websocket.send_json({"type": "status", **status})
+        if status["status"] == "playing":
+            await websocket.send_json({"type": "stats", **player.get_stats()})
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        connected_clients.discard(websocket)
 
 
 @app.get("/api/cues")
@@ -111,7 +169,7 @@ def delete_cue(cue_id: str):
 
 
 @app.post("/api/cues/{cue_id}/play")
-def play_cue(cue_id: str):
+async def play_cue(cue_id: str):
     all_cues = cues.load_cues(cues_file)
     cue = next((c for c in all_cues if c["id"] == cue_id), None)
     if not cue:
@@ -127,12 +185,14 @@ def play_cue(cue_id: str):
         state.num_cues = len(all_cues)
 
     player.play(cue["id"], cue["path"], cue.get("type"), display)
+    await broadcast_status()
     return {"success": True, "cue": cue}
 
 
 @app.post("/api/stop")
-def stop_playback():
+async def stop_playback():
     player.stop()
+    await broadcast_status()
     return {"success": True}
 
 
@@ -152,8 +212,7 @@ def get_debug():
 
 
 @app.post("/api/go")
-def go_next():
-    """Advance to and play the next cue. Wraps to cue 1 if at end."""
+async def go_next():
     update_num_cues()
     if state.num_cues == 0:
         return {"success": False, "error": "No cues in list"}
@@ -167,12 +226,12 @@ def go_next():
 
     cue = all_cues[state.current_index - 1]
     player.play(cue["id"], cue["path"], cue.get("type"), display)
+    await broadcast_status()
     return {"success": True, "cue": cue, "index": state.current_index}
 
 
 @app.post("/api/go/{n}")
-def go_to(n: int):
-    """Play cue number n (1-based index)."""
+async def go_to(n: int):
     update_num_cues()
     if state.num_cues == 0:
         return {"success": False, "error": "No cues in list"}
@@ -185,12 +244,12 @@ def go_to(n: int):
     cue = all_cues[n - 1]
 
     player.play(cue["id"], cue["path"], cue.get("type"), display)
+    await broadcast_status()
     return {"success": True, "cue": cue, "index": n}
 
 
 @app.post("/api/previous")
-def go_previous():
-    """Play the previous cue. Stays at cue 1 if already at cue 1."""
+async def go_previous():
     update_num_cues()
     if state.num_cues == 0:
         return {"success": False, "error": "No cues in list"}
@@ -204,12 +263,12 @@ def go_previous():
 
     cue = all_cues[state.current_index - 1]
     player.play(cue["id"], cue["path"], cue.get("type"), display)
+    await broadcast_status()
     return {"success": True, "cue": cue, "index": state.current_index}
 
 
 @app.get("/api/current")
 def get_current():
-    """Return the current cue number and metadata."""
     update_num_cues()
     if state.num_cues == 0:
         return {"index": 0, "cue": None}
@@ -224,7 +283,6 @@ def get_current():
 
 @app.post("/api/reset")
 def reset_pointer():
-    """Reset cue pointer to 0 without playing."""
     state.current_index = 0
     return {"success": True, "index": 0}
 
