@@ -37,6 +37,7 @@ def add_cue(cues_file: str, filename: str, media_dir: str, status: str = "ready"
         "type": guess_media_type(filename),
         "path": f"{media_dir}/{filename}",
         "status": status,
+        "loop": False,
     }
 
     cues = load_cues(cues_file)
@@ -67,6 +68,16 @@ def update_cue_path(cues_file: str, cue_id: str, new_path: str) -> bool:
             return True
     return False
 
+def update_cue_loop(cues_file: str, cue_id: str) -> bool:
+    cues = load_cues(cues_file)
+    for cue in cues:
+        if cue["id"] == cue_id:
+            cue["loop"] = not cue.get("loop", False)
+            save_cues(cues_file, cues)
+            return True
+    return False
+
+
 def remove_cue(cues_file: str, cue_id: str) -> bool:
     cues = load_cues(cues_file)
     cues = [c for c in cues if c["id"] != cue_id]
@@ -95,7 +106,7 @@ def play_by_index(cues_file: str, index: int, display: str = None) -> Cue | None
     file_path = cue.get("path")
     
     if file_path:
-        player.play(cue["id"], file_path, cue.get("type"), display)
+        player.play(cue["id"], file_path, cue.get("type"), display, cue.get("loop", False))
         return cue
     
     return None

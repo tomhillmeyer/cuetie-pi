@@ -10,6 +10,10 @@ function CueList({ refreshKey }) {
     getCues().then(setCues)
   }, [refreshKey])
 
+  const handleToggleLoop = (cueId, newLoop) => {
+    setCues(prev => prev.map(c => c.id === cueId ? { ...c, loop: newLoop } : c))
+  }
+
   const handleDragEnd = async (result) => {
     if (!result.destination) return
     const newOrder = [...cues.map(c => c.id)]
@@ -25,7 +29,7 @@ function CueList({ refreshKey }) {
 
   return (
     <div className="cueListContainer">
-      <h2 className="cueListHeading">Cue List</h2>
+      <h2 className="cueListHeading">CUE LIST</h2>
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="cues">
           {(provided) => (
@@ -35,7 +39,7 @@ function CueList({ refreshKey }) {
               className="cueList"
             >
               {cues.map((cue, index) => (
-                <CueItem key={cue.id} cue={cue} index={index} onUpdate={() => getCues().then(setCues)} />
+                <CueItem key={cue.id} cue={cue} index={index} onUpdate={() => getCues().then(setCues)} onToggleLoop={handleToggleLoop} />
               ))}
               {provided.placeholder}
             </div>

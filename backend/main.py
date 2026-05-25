@@ -190,9 +190,19 @@ async def play_cue(cue_id: str):
         state.current_index = cue_index + 1
         state.num_cues = len(all_cues)
 
-    player.play(cue["id"], cue["path"], cue.get("type"), display)
+    player.play(cue["id"], cue["path"], cue.get("type"), display, cue.get("loop", False))
     await broadcast_status()
     return {"success": True, "cue": cue}
+
+
+@app.post("/api/cues/{cue_id}/loop")
+async def toggle_loop(cue_id: str):
+    success = cues.update_cue_loop(cues_file, cue_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Cue not found")
+    all_cues = cues.load_cues(cues_file)
+    cue = next((c for c in all_cues if c["id"] == cue_id), None)
+    return {"success": True, "loop": cue.get("loop", False) if cue else False}
 
 
 @app.post("/api/stop")
@@ -231,7 +241,7 @@ async def go_next():
         state.current_index += 1
 
     cue = all_cues[state.current_index - 1]
-    player.play(cue["id"], cue["path"], cue.get("type"), display)
+    player.play(cue["id"], cue["path"], cue.get("type"), display, cue.get("loop", False))
     await broadcast_status()
     return {"success": True, "cue": cue, "index": state.current_index}
 
@@ -249,7 +259,7 @@ async def go_to(n: int):
     all_cues = cues.load_cues(cues_file)
     cue = all_cues[n - 1]
 
-    player.play(cue["id"], cue["path"], cue.get("type"), display)
+    player.play(cue["id"], cue["path"], cue.get("type"), display, cue.get("loop", False))
     await broadcast_status()
     return {"success": True, "cue": cue, "index": n}
 
@@ -268,7 +278,7 @@ async def go_previous():
         state.current_index -= 1
 
     cue = all_cues[state.current_index - 1]
-    player.play(cue["id"], cue["path"], cue.get("type"), display)
+    player.play(cue["id"], cue["path"], cue.get("type"), display, cue.get("loop", False))
     await broadcast_status()
     return {"success": True, "cue": cue, "index": state.current_index}
 

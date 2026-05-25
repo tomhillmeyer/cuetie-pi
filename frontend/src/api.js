@@ -45,6 +45,11 @@ export async function deleteCue(cueId) {
   return res.json()
 }
 
+export async function toggleLoop(cueId) {
+  const res = await fetch(`${BASE}/cues/${cueId}/loop`, { method: 'POST' })
+  return res.json()
+}
+
 export async function playCue(cueId) {
   const res = await fetch(`${BASE}/cues/${cueId}/play`, { method: 'POST' })
   return res.json()

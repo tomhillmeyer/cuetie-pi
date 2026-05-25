@@ -193,15 +193,18 @@ def _ensure_mpv_started(display: str | None = None) -> None:
     _wait_for_socket(IPC_SOCKET, timeout=5.0)
 
 
-def _load_via_mpv(filepath: str, media_type: str | None = None, display: str | None = None) -> bool:
+def _load_via_mpv(filepath: str, media_type: str | None = None, display: str | None = None, loop: bool = False) -> bool:
     for attempt in range(3):
         _ensure_mpv_started(display)
-        if _send_commands_sequential([
+        cmds = [
             ["set", "image-display-duration", "inf" if media_type == "image" else "0"],
             ["loadfile", filepath, "replace"],
             ["set", "fullscreen", "yes"],
             ["set", "pause", "no"],
-        ]):
+        ]
+        if media_type == "video":
+            cmds.append(["set", "loop-file", "inf" if loop else "no"])
+        if _send_commands_sequential(cmds):
             return True
         print(f"[player] mpv loadfile attempt {attempt + 1} failed, retrying...")
         time.sleep(0.5)
@@ -232,7 +235,7 @@ def show_splash(display: str | None = None) -> None:
     ])
 
 
-def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None) -> None:
+def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None, loop: bool = False) -> None:
     global _current_file, _current_cue_id, _showing_black, _showing_splash
 
     _showing_splash = False
@@ -240,7 +243,7 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
     _current_file = filepath
     _current_cue_id = cue_id
 
-    _load_via_mpv(filepath, media_type, display)
+    _load_via_mpv(filepath, media_type, display, loop)
 
     global STARTUP_LOGS, _CURRENT_STATS
     STARTUP_LOGS = ""

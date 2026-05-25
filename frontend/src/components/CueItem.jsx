@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { playCue, stopPlayback, deleteCue, subscribeStatus } from '../api'
+import { playCue, stopPlayback, deleteCue, toggleLoop, subscribeStatus } from '../api'
 import { MdDelete } from "react-icons/md";
 import { FaPlay, FaStop } from "react-icons/fa";
-import { FaDeleteLeft } from "react-icons/fa6";
+import { FaDeleteLeft, FaRepeat } from "react-icons/fa6";
 
-function CueItem({ cue, index, onUpdate }) {
+function CueItem({ cue, index, onUpdate, onToggleLoop }) {
   const [playing, setPlaying] = useState(false)
   const isProcessing = cue.status === 'processing'
   const isError = cue.status === 'error'
@@ -27,6 +27,11 @@ function CueItem({ cue, index, onUpdate }) {
     onUpdate?.()
   }
 
+  const handleToggleLoop = async () => {
+    const res = await toggleLoop(cue.id)
+    onToggleLoop?.(cue.id, res.loop)
+  }
+
   const getItemClass = () => {
     let className = 'cueItem'
     if (playing) className += ' cueItemPlaying'
@@ -45,17 +50,26 @@ function CueItem({ cue, index, onUpdate }) {
           style={provided.draggableProps.style}
         >
           <span className="cueHandle">☰</span>
-          <span className="cueNumber">{index + 1}.</span>
+          <span className="cueNumber">{index + 1}</span>
           <span className="cueLabel" title={cue.label}>{cue.label}</span>
+          {cue.type === 'video' && (
+            <button
+              className={cue.loop ? 'loopBtn active' : 'loopBtn'}
+              onClick={handleToggleLoop}
+              title={cue.loop ? 'Looping' : 'Loop'}
+            >
+              <FaRepeat size={18} />
+            </button>
+          )}
           <button
             className={playing ? 'stopBtn' : 'playBtn'}
             onClick={handlePlay}
             title={playing ? 'Stop' : 'Play'}
           >
-            {playing ? <FaStop /> : <FaPlay />}
+            {playing ? <FaStop size={18} /> : <FaPlay size={18} />}
           </button>
           <button className="deleteBtn" onClick={handleDelete} title="Delete">
-            <FaDeleteLeft />
+            <MdDelete size={18} />
           </button>
         </div>
       )}
