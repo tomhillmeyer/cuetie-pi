@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+from PIL import Image
+
 _proc: subprocess.Popen | None = None
 _current_file: str | None = None
 _current_cue_id: str | None = None
@@ -35,6 +37,21 @@ _CURRENT_STATS = {
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
+
+
+def resize_image(filepath: str, max_dim: int = 4096) -> None:
+    ext = Path(filepath).suffix.lower()
+    if ext not in IMAGE_EXTENSIONS:
+        return
+    img = Image.open(filepath)
+    if max(img.width, img.height) <= max_dim:
+        return
+    img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+    if ext in (".jpg", ".jpeg"):
+        img = img.convert("RGB")
+        img.save(filepath, "JPEG", quality=85)
+    else:
+        img.save(filepath)
 
 
 def guess_media_type(filepath: str) -> str:

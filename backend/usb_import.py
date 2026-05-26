@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 
 import cues
+import player
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif"}
@@ -145,6 +146,7 @@ def _import_files(files: list[Path], media_dir: str, cues_file: str) -> int:
             shutil.copy2(str(src), str(dst))
         except Exception:
             continue
+        player.resize_image(str(dst))
         media_type = "video" if src.suffix.lower() in VIDEO_EXTS else "image"
         try:
             cues.add_cue(cues_file, dst.name, media_dir, "ready")

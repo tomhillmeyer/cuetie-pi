@@ -23,6 +23,7 @@ function CueItem({ cue, index, onUpdate, onToggleLoop, selected, onSelect }) {
   }
 
   const handleDelete = async () => {
+    if (!window.confirm(`Delete "${cue.label}"?`)) return
     await deleteCue(cue.id)
     onUpdate?.()
   }

@@ -198,6 +198,8 @@ async def upload_media(file: UploadFile = File(...)):
         content = await file.read()
         f.write(content)
 
+    player.resize_image(str(save_path))
+
     media_type = cues.guess_media_type(safe_name)
     cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")
 
