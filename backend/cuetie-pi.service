@@ -10,7 +10,7 @@ ExecStart=/home/pi/cuetie-pi/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --
 Restart=always
 RestartSec=5
 User=pi
-SupplementaryGroups=video render
+SupplementaryGroups=video render input
 Environment=WAYLAND_DISPLAY=wayland-1
 Environment=XDG_RUNTIME_DIR=/tmp/weston-runtime
 

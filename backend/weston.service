@@ -6,7 +6,7 @@ Wants=seatd.service
 [Service]
 Type=simple
 User=pi
-SupplementaryGroups=video render
+SupplementaryGroups=video render input
 ExecStartPre=/bin/mkdir -p /tmp/weston-runtime
 ExecStartPre=/bin/chmod 0700 /tmp/weston-runtime
 Environment=XDG_RUNTIME_DIR=/tmp/weston-runtime

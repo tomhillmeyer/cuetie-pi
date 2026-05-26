@@ -55,6 +55,7 @@ echo "==> Adding user to required groups..."
 sudo usermod -aG video "$USER"
 sudo usermod -aG render "$USER"
 sudo usermod -aG tty "$USER"
+sudo usermod -aG input "$USER"
 
 # ---- Step 4: Copy code ----
 echo ""
