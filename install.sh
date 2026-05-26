@@ -172,8 +172,6 @@ if systemctl is-active --quiet weston && systemctl is-active --quiet cuetie-pi; 
   echo ""
   echo "  Open http://$HOST_IP:8000 in your browser"
   echo ""
-  echo "  Supported browsers: Chrome, Firefox, Safari, Edge"
-  echo ""
   echo "  The app will start automatically on boot."
   echo ""
   echo "  Useful commands:"

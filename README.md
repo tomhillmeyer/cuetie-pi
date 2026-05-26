@@ -1,6 +1,35 @@
-![Cuetie Pi](assets/cuetie_pi_logo.png)
+<img src="assets/cuetie_pi_logo.png" width="500">
 
-A self-hosted media playback application for Raspberry Pi. Upload images and videos through a web interface, build a cue list, and trigger playback using a web GUI or an API.
+### A media playback application for Raspberry Pi. Upload images and videos through a web interface, build a cue list, and trigger playback using a web GUI or an API.
+Most digital signage applications for Raspberry Pi require you to set time of day triggers for media. For the instances where playback is simple enough for a Raspberry Pi but you need media to play on cue, there's Cuetie Pi!
+
+## Features
+
+### Web GUI
+- Drag-and-drop media upload (PNG, JPG, GIF, MP4, MOV, WEBM)
+- Drag-to-reorder cue list
+- Play/stop controls per cue
+- Live playback stats
+- Works on any browser on the same network
+
+### REST API
+Full API reference at [`API.md`](API.md).
+
+### USB Auto-Import
+- Plug in a USB drive with media files into the Pi and they're automatically copied onto the device and added to the end of the cue list. 
+- Supports exFAT/FAT32/NTFS. Formats: JPG, PNG, GIF, MP4, MOV, WEBM.
+
+### Hardware Control
+- Plug a keyboard or slide advancer (DSAN PerfectCue, etc.) into the Pi and flip through the cue list.
+  - **Right arrow** → Next cue, wraps to first at end
+  - **Left arrow** → Previous cue, wraps to last at start
+
+### Offline Support
+- Once Cuetie Pi is installed, it can work completely offline. Use a flash drive to auto-import new content, and use a keyboard or slide advancer to flip between items.
+
+
+## Web GUI
+![Cuetie Pi](assets/cuetie_pi_sample.png)
 
 
 
@@ -28,30 +57,6 @@ curl -fsSL https://raw.githubusercontent.com/tomhillmeyer/cuetie-pi/main/install
 
 ### Updates
 Run the same install script again to update to the latest version. The installer preserves your `cues.json`, uploaded media, and `.env` configuration.
-
-
-## Features
-
-### Web GUI
-- Drag-and-drop media upload (PNG, JPG, GIF, MP4, MOV, WEBM)
-- Drag-to-reorder cue list
-- Play/stop controls per cue
-- Live playback stats
-- Works on any browser on the same network
-
-### REST API
-Full API reference at [`API.md`](API.md).
-
-### USB Auto-Import
-- Plug in a USB drive with media files into the Pi and they're automatically copied onto the device and added to the end of the cue list. 
-- Supports exFAT/FAT32/NTFS. Formats: JPG, PNG, GIF, MP4, MOV, WEBM.
-
-### Hardware Control
-- Plug in a keyboard or slide advancer (DSAN PerfectCue, etc.) into the Pi and flip through the cue list.
-  - **Right arrow** → Next cue, wraps to first at end
-  - **Left arrow** → Previous cue, wraps to last at start
-
-
 
 
 ## Local Development
