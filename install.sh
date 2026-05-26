@@ -42,12 +42,18 @@ sudo apt install -y \
   python3-venv \
   python3-pip \
   python3-dev \
-  libevdev2
+  libevdev2 \
+  pmount
 
 # ---- Step 2: seatd ----
 echo ""
 echo "==> Enabling seatd..."
 sudo systemctl enable --now seatd
+
+# ---- Step 2b: udisks2 (USB auto-mount for media import) ----
+echo ""
+echo "==> Enabling udisks2..."
+sudo systemctl enable --now udisks2 || true
 
 # ---- Step 3: User groups ----
 echo ""

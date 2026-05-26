@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import UploadZone from './components/UploadZone'
 import CueList from './components/CueList'
 import StatsPanel from './components/StatsPanel'
-import { subscribeStatus } from './api'
+import { subscribeStatus, subscribeCuesUpdated } from './api'
 import { FaStop } from "react-icons/fa";
 
 
@@ -12,6 +12,10 @@ function App() {
 
   useEffect(() => subscribeStatus(msg => {
     setStatus({ status: msg.status, filename: msg.filename })
+  }), [])
+
+  useEffect(() => subscribeCuesUpdated(() => {
+    setRefreshKey(k => k + 1)
   }), [])
 
   useEffect(() => {

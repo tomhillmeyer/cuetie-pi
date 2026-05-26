@@ -78,6 +78,7 @@ export async function getDebug() {
 let ws = null
 const statusListeners = new Set()
 const statsListeners = new Set()
+const cuesUpdatedListeners = new Set()
 let reconnectTimer = null
 
 function connectStatusWS() {
@@ -89,6 +90,8 @@ function connectStatusWS() {
       statsListeners.forEach(f => f(msg))
     } else if (msg.type === 'status') {
       statusListeners.forEach(f => f(msg))
+    } else if (msg.type === 'cues_updated') {
+      cuesUpdatedListeners.forEach(f => f())
     }
   }
   ws.onclose = () => {
@@ -106,7 +109,7 @@ function ensureConnected() {
 }
 
 function maybeDisconnect() {
-  if (statusListeners.size === 0 && statsListeners.size === 0) {
+  if (statusListeners.size === 0 && statsListeners.size === 0 && cuesUpdatedListeners.size === 0) {
     ws?.close()
     ws = null
     clearTimeout(reconnectTimer)
@@ -127,6 +130,15 @@ export function subscribeStats(fn) {
   ensureConnected()
   return () => {
     statsListeners.delete(fn)
+    maybeDisconnect()
+  }
+}
+
+export function subscribeCuesUpdated(fn) {
+  cuesUpdatedListeners.add(fn)
+  ensureConnected()
+  return () => {
+    cuesUpdatedListeners.delete(fn)
     maybeDisconnect()
   }
 }

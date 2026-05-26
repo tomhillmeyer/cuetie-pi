@@ -132,7 +132,7 @@ def generate(logo_path: str, output_path: str) -> tuple[int, int]:
     rx = mid + 60
 
     if cue_list:
-        for i, cue in enumerate(cue_list[:12]):
+        for i, cue in enumerate(cue_list[:30]):
             label = cue.get("label", cue.get("filename", "?"))
             line = f"{i + 1}. {label}"
             draw.text((rx, y2), line, fill=WHITE, font=font_body)

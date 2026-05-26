@@ -14,6 +14,7 @@ import player
 import cues
 import keyboard
 import generate_splash
+import usb_import
 
 load_dotenv()
 
@@ -32,6 +33,7 @@ state = AppState()
 connected_clients: set[WebSocket] = set()
 _stats_task: asyncio.Task | None = None
 _splash_network_task: asyncio.Task | None = None
+_usb_import_task: asyncio.Task | None = None
 
 
 def update_num_cues():
@@ -56,6 +58,22 @@ async def _push_stats_loop():
         pass
 
 
+def _refresh_cues_display():
+    generate_splash.generate(str(splash_logo), str(splash_path))
+    player.refresh_splash()
+
+
+async def broadcast_cues_updated():
+    dead = set()
+    msg = {"type": "cues_updated"}
+    for ws in connected_clients:
+        try:
+            await ws.send_json(msg)
+        except Exception:
+            dead.add(ws)
+    connected_clients.difference_update(dead)
+
+
 async def broadcast_status():
     global _stats_task
     status = player.status()
@@ -78,10 +96,10 @@ async def broadcast_status():
 
 
 splash_logo = Path(__file__).resolve().parent.parent / "frontend" / "dist" / "logo.png"
+splash_path = Path(generate_splash.__file__).parent / "splash.png"
 
 
 async def _splash_network_watcher():
-    splash_path = Path(generate_splash.__file__).parent / "splash.png"
     last_ip = None
     while True:
         await asyncio.sleep(10)
@@ -92,16 +110,27 @@ async def _splash_network_watcher():
             current = ips[0]
             if current != last_ip:
                 last_ip = current
-                generate_splash.generate(str(splash_logo), str(splash_path))
-                player.refresh_splash()
+                _refresh_cues_display()
                 print(f"[splash] Updated for IP: {current}", flush=True)
+        except Exception:
+            pass
+
+
+async def _usb_import_loop():
+    while True:
+        await asyncio.sleep(5)
+        try:
+            count = usb_import.import_usb(media_dir, cues_file)
+            if count:
+                await broadcast_cues_updated()
+                _refresh_cues_display()
         except Exception:
             pass
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _splash_network_task
+    global _splash_network_task, _usb_import_task
     Path(media_dir).mkdir(parents=True, exist_ok=True)
     update_num_cues()
     try:
@@ -115,12 +144,15 @@ async def lifespan(app: FastAPI):
         print(f"[splash] Failed to show splash screen: {e}")
 
     _splash_network_task = asyncio.create_task(_splash_network_watcher())
+    _usb_import_task = asyncio.create_task(_usb_import_loop())
 
     yield
     if _stats_task is not None and not _stats_task.done():
         _stats_task.cancel()
     if _splash_network_task is not None and not _splash_network_task.done():
         _splash_network_task.cancel()
+    if _usb_import_task is not None and not _usb_import_task.done():
+        _usb_import_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -169,11 +201,13 @@ async def upload_media(file: UploadFile = File(...)):
     media_type = cues.guess_media_type(safe_name)
     cue = cues.add_cue(cues_file, safe_name, media_dir, "ready")
 
+    _refresh_cues_display()
+    await broadcast_cues_updated()
     return cue
 
 
 @app.post("/api/cues/reorder")
-def reorder_cues(body: dict):
+async def reorder_cues(body: dict):
     cue_ids = body.get("cueIds", [])
     reordered = cues.reorder_cues(cues_file, cue_ids)
 
@@ -185,11 +219,13 @@ def reorder_cues(body: dict):
                 state.current_index = new_index + 1
 
     state.num_cues = len(reordered)
+    _refresh_cues_display()
+    await broadcast_cues_updated()
     return reordered
 
 
 @app.delete("/api/cues/{cue_id}")
-def delete_cue(cue_id: str):
+async def delete_cue(cue_id: str):
     all_cues = cues.load_cues(cues_file)
     cue = next((c for c in all_cues if c["id"] == cue_id), None)
     if not cue:
@@ -200,6 +236,8 @@ def delete_cue(cue_id: str):
         file_path.unlink()
 
     cues.remove_cue(cues_file, cue_id)
+    _refresh_cues_display()
+    await broadcast_cues_updated()
     return {"success": True}
 
 

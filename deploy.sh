@@ -54,6 +54,10 @@ sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
   "echo '$PI_PASS' | sudo -S apt install -y seatd && \
    echo '$PI_PASS' | sudo -S systemctl enable --now seatd"
 
+echo "==> Installing pmount for USB import..."
+sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
+  "echo '$PI_PASS' | sudo -S apt install -y pmount"
+
 echo "==> Restarting services..."
 sshpass -p "$PI_PASS" ssh -o StrictHostKeyChecking=no "$PI_USER@$PI_HOST" \
   "echo '$PI_PASS' | sudo -S systemctl daemon-reload"
