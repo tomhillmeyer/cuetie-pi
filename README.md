@@ -1,6 +1,6 @@
 <img src="assets/cuetie_pi_logo.png" width="500">
 
-### A media playback application for Raspberry Pi. Upload images and videos through a web interface, build a cue list, and trigger playback using a web GUI or an API.
+### A media playback application for Raspberry Pi. Upload images and videos through a web interface, build a cue list, and trigger playback using the web GUI or API.
 Most digital signage applications for Raspberry Pi require you to set time of day triggers for media. For the instances where playback is simple enough for a Raspberry Pi but you need media to play on cue, there's Cuetie Pi!
 
 ## Features
