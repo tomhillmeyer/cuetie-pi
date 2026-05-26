@@ -15,9 +15,20 @@ if [ -f "backend/main.py" ] && [ -d "frontend/dist" ]; then
   SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 else
   echo "==> Downloading latest release..."
-  VERSION="${1:-latest}"
-  TARBALL="cuetie-pi.tar.gz"
-  URL="https://github.com/$REPO/releases/$VERSION/download/$TARBALL"
+  echo "==> Discovering latest release via GitHub API..."
+  TAG=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" \
+    | grep '"tag_name"' \
+    | cut -d '"' -f 4)
+
+  if [ -z "$TAG" ]; then
+    echo "ERROR: Could not determine latest release from GitHub API."
+    echo "Check network connectivity or rate limits."
+    exit 1
+  fi
+
+  TARBALL="cuetie-pi-$TAG.tar.gz"
+  URL="https://github.com/$REPO/releases/download/$TAG/$TARBALL"
+  echo "==> Latest: $TAG"
 
   TMPDIR=$(mktemp -d)
   curl -fsSL "$URL" -o "$TMPDIR/$TARBALL"
@@ -26,6 +37,7 @@ else
 
   if [ -z "$SRC_DIR" ] || [ ! -d "$SRC_DIR" ]; then
     echo "ERROR: Could not extract release archive."
+    echo "  Tried: $URL"
     exit 1
   fi
 fi
