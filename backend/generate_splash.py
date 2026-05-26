@@ -138,5 +138,17 @@ def generate(logo_path: str, output_path: str) -> tuple[int, int]:
             draw.text((rx, y2), line, fill=WHITE, font=font_body)
             y2 += 32
 
+    # --- Version footer ---
+    ver_path = Path(__file__).parent.parent / "frontend" / "package.json"
+    version = "?"
+    try:
+        import json
+        version = json.loads(ver_path.read_text()).get("version", "?")
+    except Exception:
+        pass
+    ver_text = f"v{version}"
+    vb = draw.textbbox((0, 0), ver_text, font=font_body)
+    draw.text((width - vb[2] - 10, height - vb[3] - 10), ver_text, fill=(100, 100, 100), font=font_body)
+
     img.save(output_path, "PNG")
     return (width, height)

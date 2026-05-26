@@ -2,3 +2,5 @@ reference/
 CONTEXT.md
 testing.md
 build-spec.md
+out/
+cuetie-pi.tar.gz

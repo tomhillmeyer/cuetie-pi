@@ -46,7 +46,10 @@ function App() {
   return (
     <div className="container">
       <div className="header-row">
-        <img src="/logo.png" alt="Cutie Pi" className="logo" />
+        <div className="logo-wrapper">
+          <img src="/logo.png" alt="Cutie Pi" className="logo" />
+          <span className="app-version">v{__APP_VERSION__}</span>
+        </div>
         <UploadZone onUpload={handleUpload} />
         <button className={isPlaying ? 'stopButton stopButtonActive' : 'stopButton'} onClick={handleStop} disabled={!isPlaying}>
           <FaStop /> STOP
