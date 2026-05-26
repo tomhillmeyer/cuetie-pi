@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 import qrcode
 
 
-def _get_ips() -> list[str]:
+def get_primary_ip() -> list[str]:
     ips = []
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -64,7 +64,7 @@ CUE_FILE = Path(__file__).parent / "cues.json"
 
 def generate(logo_path: str, output_path: str) -> tuple[int, int]:
     width, height = 1920, 1080
-    ips = _get_ips()
+    ips = get_primary_ip()
     if not ips:
         ips = ["127.0.0.1"]
     primary_ip = ips[0]

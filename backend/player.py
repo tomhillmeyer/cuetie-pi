@@ -235,6 +235,16 @@ def show_splash(display: str | None = None) -> None:
     ])
 
 
+def refresh_splash() -> None:
+    if not _showing_splash:
+        return
+    splash_path = Path(__file__).parent / "splash.png"
+    _send_commands_sequential([
+        ["loadfile", str(splash_path), "replace"],
+        ["set", "fullscreen", "yes"],
+    ])
+
+
 def play(cue_id: str, filepath: str, media_type: str | None = None, display: str | None = None, loop: bool = False) -> None:
     global _current_file, _current_cue_id, _showing_black, _showing_splash
 

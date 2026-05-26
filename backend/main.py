@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import player
 import cues
 import keyboard
+import generate_splash
 
 load_dotenv()
 
@@ -30,6 +31,7 @@ class AppState:
 state = AppState()
 connected_clients: set[WebSocket] = set()
 _stats_task: asyncio.Task | None = None
+_splash_network_task: asyncio.Task | None = None
 
 
 def update_num_cues():
@@ -75,8 +77,31 @@ async def broadcast_status():
             _stats_task = None
 
 
+splash_logo = Path(__file__).resolve().parent.parent / "frontend" / "dist" / "logo.png"
+
+
+async def _splash_network_watcher():
+    splash_path = Path(generate_splash.__file__).parent / "splash.png"
+    last_ip = None
+    while True:
+        await asyncio.sleep(10)
+        try:
+            ips = generate_splash.get_primary_ip()
+            if not ips:
+                continue
+            current = ips[0]
+            if current != last_ip:
+                last_ip = current
+                generate_splash.generate(str(splash_logo), str(splash_path))
+                player.refresh_splash()
+                print(f"[splash] Updated for IP: {current}", flush=True)
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _splash_network_task
     Path(media_dir).mkdir(parents=True, exist_ok=True)
     update_num_cues()
     try:
@@ -89,9 +114,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[splash] Failed to show splash screen: {e}")
 
+    _splash_network_task = asyncio.create_task(_splash_network_watcher())
+
     yield
     if _stats_task is not None and not _stats_task.done():
         _stats_task.cancel()
+    if _splash_network_task is not None and not _splash_network_task.done():
+        _splash_network_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
