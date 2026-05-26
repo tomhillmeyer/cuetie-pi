@@ -1,5 +1,3 @@
-# Cuetie Pi
-
 ![Cuetie Pi](assets/cuetie_pi_logo.png)
 
 A self-hosted media playback application for Raspberry Pi. Upload images and videos through a web interface, build a cue list, and trigger playback using a web GUI or an API.
