@@ -79,12 +79,51 @@ let ws = null
 const statusListeners = new Set()
 const statsListeners = new Set()
 const cuesUpdatedListeners = new Set()
+const connectionListeners = new Set()
+let _connected = null
 let reconnectTimer = null
+let heartbeatTimer = null
+let lastMsgTime = 0
+
+function notifyConnection(connected) {
+  _connected = connected
+  connectionListeners.forEach(f => f(connected))
+}
+
+function startHeartbeat() {
+  clearInterval(heartbeatTimer)
+  lastMsgTime = Date.now()
+  heartbeatTimer = setInterval(() => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      clearInterval(heartbeatTimer)
+      return
+    }
+    if (Date.now() - lastMsgTime > 6000) {
+      notifyConnection(false)
+      ws.close()
+      clearInterval(heartbeatTimer)
+      return
+    }
+    try {
+      ws.send("ping")
+    } catch {
+      notifyConnection(false)
+      ws.close()
+      clearInterval(heartbeatTimer)
+    }
+  }, 3000)
+}
 
 function connectStatusWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${proto}//${location.host}/ws/status`)
+  ws.onopen = () => {
+    notifyConnection(true)
+    startHeartbeat()
+  }
   ws.onmessage = e => {
+    lastMsgTime = Date.now()
+    if (e.data === "pong") return
     const msg = JSON.parse(e.data)
     if (msg.type === 'stats') {
       statsListeners.forEach(f => f(msg))
@@ -94,9 +133,12 @@ function connectStatusWS() {
       cuesUpdatedListeners.forEach(f => f())
     }
   }
+  ws.onerror = () => notifyConnection(false)
   ws.onclose = () => {
+    notifyConnection(false)
     ws = null
     clearTimeout(reconnectTimer)
+    clearInterval(heartbeatTimer)
     reconnectTimer = setTimeout(connectStatusWS, 1000)
   }
 }
@@ -109,7 +151,7 @@ function ensureConnected() {
 }
 
 function maybeDisconnect() {
-  if (statusListeners.size === 0 && statsListeners.size === 0 && cuesUpdatedListeners.size === 0) {
+  if (statusListeners.size === 0 && statsListeners.size === 0 && cuesUpdatedListeners.size === 0 && connectionListeners.size === 0) {
     ws?.close()
     ws = null
     clearTimeout(reconnectTimer)
@@ -139,6 +181,16 @@ export function subscribeCuesUpdated(fn) {
   ensureConnected()
   return () => {
     cuesUpdatedListeners.delete(fn)
+    maybeDisconnect()
+  }
+}
+
+export function subscribeConnection(fn) {
+  fn(_connected)
+  connectionListeners.add(fn)
+  ensureConnected()
+  return () => {
+    connectionListeners.delete(fn)
     maybeDisconnect()
   }
 }

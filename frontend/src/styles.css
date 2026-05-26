@@ -409,3 +409,44 @@ body {
   justify-content: space-between;
   gap: 16px;
 }
+
+/* Disconnected overlay */
+.disconnected-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.disconnected-modal {
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.disconnected-modal h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.disconnected-modal p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.disconnected-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: disconnectedSpin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes disconnectedSpin {
+  to { transform: rotate(360deg); }
+}

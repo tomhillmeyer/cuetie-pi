@@ -176,7 +176,9 @@ async def ws_status(websocket: WebSocket):
         if status["status"] == "playing":
             await websocket.send_json({"type": "stats", **player.get_stats()})
         while True:
-            await websocket.receive_text()
+            text = await websocket.receive_text()
+            if text == "ping":
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         connected_clients.discard(websocket)
 

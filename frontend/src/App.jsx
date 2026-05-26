@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react'
 import UploadZone from './components/UploadZone'
 import CueList from './components/CueList'
 import StatsPanel from './components/StatsPanel'
-import { subscribeStatus, subscribeCuesUpdated } from './api'
+import { subscribeStatus, subscribeCuesUpdated, subscribeConnection } from './api'
 import { FaStop } from "react-icons/fa";
 
 
 function App() {
   const [status, setStatus] = useState({ status: 'idle', filename: null })
   const [refreshKey, setRefreshKey] = useState(0)
+  const [connected, setConnected] = useState(null)
 
   useEffect(() => subscribeStatus(msg => {
     setStatus({ status: msg.status, filename: msg.filename })
   }), [])
+
+  useEffect(() => subscribeConnection(setConnected), [])
 
   useEffect(() => subscribeCuesUpdated(() => {
     setRefreshKey(k => k + 1)
@@ -53,6 +56,15 @@ function App() {
         <StatsPanel />
       </div>
       <CueList refreshKey={refreshKey} />
+      {connected === false && (
+        <div className="disconnected-overlay">
+          <div className="disconnected-modal">
+            <h2>Disconnected</h2>
+            <p>Reconnecting…</p>
+            <div className="disconnected-spinner" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
