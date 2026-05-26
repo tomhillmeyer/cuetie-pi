@@ -6,20 +6,24 @@ A self-hosted media playback application for Raspberry Pi. Upload images and vid
 
 ## Install and update
 
+**Requirements**
+- Raspberry Pi 4 or 5
+- Raspberry Pi OS **Lite**
+  - The full version of Pi OS both installs a bunch of unnecessary items, as well as may interefere with the items Cuetie Pi installs.
+
+**Install Steps**
+
 1. Install Raspberry Pi OS Lite and SSH into the Pi
 
 2. Run this script to install the latest version:
 
 ```bash
-curl -fsSL https://github.com/tomhillmeyer/cuetie-pi/releases/latest/download/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/tomhillmeyer/cuetie-pi/main/install.sh | bash
 ```
 
 3. Open `http://<pi-ip-address>:8000` in your browser, or scan the QR code on the splash screen.
 
-**Requirements**:
-- Raspberry Pi 4 or 5
-- Raspberry Pi OS **Lite**
-  - The full version of Pi OS both installs a bunch of unnecessary items, as well as may interefere with the items Cuetie Pi installs.
+
 
 
 ### Updates
