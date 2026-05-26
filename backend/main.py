@@ -344,7 +344,7 @@ async def go_previous():
     all_cues = cues.load_cues(cues_file)
 
     if state.current_index <= 1:
-        state.current_index = 1
+        state.current_index = state.num_cues
     else:
         state.current_index -= 1
 

@@ -69,6 +69,18 @@ Play a cue by UUID. Also sets the cue pointer to this cue's position.
 }
 ```
 
+### POST /api/cues/{cue_id}/loop
+
+Toggle the loop flag on a video cue. When looping is enabled, the video restarts immediately after reaching the end.
+
+**Response**:
+```json
+{
+  "success": true,
+  "loop": true
+}
+```
+
 ### POST /api/stop
 
 Stop playback. Shows a black screen (`black.png`). The cue pointer is not changed.
@@ -140,7 +152,7 @@ Play cue number `n` (1-based). Sets the pointer to `n`.
 
 ### POST /api/previous
 
-Play the previous cue. Stays at cue 1 if already at 1.
+Play the previous cue. Wraps to the last cue if already at the first.
 
 **Response**: Same format as `/api/go`.
 
@@ -293,6 +305,20 @@ Pushed every 500ms while a cue is playing. Identical payload to `GET /api/stats`
 }
 ```
 
+#### Cue list update (`type: "cues_updated"`)
+
+Broadcast to all clients whenever the cue list is modified (upload, reorder, delete, USB import). Clients should re-fetch `GET /api/cues` on receipt.
+
+```json
+{
+  "type": "cues_updated"
+}
+```
+
+#### Heartbeat
+
+The client sends `"ping"` every 3 seconds. The server responds with `"pong"`. If no message is received for 6 seconds, the client considers the connection dead and shows a "Disconnected" overlay.
+
 When playback stops, the stats loop is cancelled — no final stats message is pushed. Clients should use the `status` message type to detect idle transitions.
 
 ---
@@ -322,6 +348,7 @@ Stored in `cues.json`:
 | `type` | string | `"video"` or `"image"` (derived from extension) |
 | `path` | string | Filesystem path relative to backend |
 | `status` | string | Cue status (`"ready"`, `"processing"`, `"error"`) |
+| `loop` | bool | Whether video restarts on end (optional, defaults to `false`) |
 
 ---
 
