@@ -5,7 +5,7 @@ REPO="tomhillmeyer/cuetie-pi"
 INSTALL_DIR="/opt/cuetie-pi"
 
 echo "======================================"
-echo " Cutie Pi Installer"
+echo " Cuetie Pi Installer"
 echo "======================================"
 echo ""
 
