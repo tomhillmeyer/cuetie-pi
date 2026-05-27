@@ -159,7 +159,7 @@ def _scan_files(mount_point: str) -> list[Path]:
     return files
 
 
-def _import_files(files: list[Path], media_dir: str, cues_file: str) -> int:
+def _import_files(files: list[Path], media_dir: str, cues_file: str, status_cb=None) -> int:
     existing = cues.load_cues(cues_file)
     existing_names = {c["filename"] for c in existing}
 
@@ -168,6 +168,9 @@ def _import_files(files: list[Path], media_dir: str, cues_file: str) -> int:
         name = src.name
         if name in existing_names:
             continue
+
+        if status_cb:
+            status_cb(f"Importing {name}...")
 
         dst = Path(media_dir) / name
         counter = 1
@@ -209,7 +212,7 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
                 pass
 
     if parts:
-        _splash("Detecting USB...")
+        _splash("Reading USB...")
     else:
         _splash("")
 
@@ -233,8 +236,7 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
         try:
             files = _scan_files(mount_point)
             if files:
-                _splash("Copying media...")
-                count = _import_files(files, media_dir, cues_file)
+                count = _import_files(files, media_dir, cues_file, status_cb=_splash)
                 if count:
                     print(
                         f"[usb] Imported {count} file(s) from {dev_name}",
@@ -245,7 +247,7 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
             if env_path:
                 _splash("Updating network settings...")
                 import usb_config
-                usb_config.handle_partition_config(mount_point, uuid, env_path)
+                usb_config.handle_partition_config(mount_point, uuid, env_path, status_cb=_splash)
         finally:
             if not was_mounted:
                 _unmount(dev_name)

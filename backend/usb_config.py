@@ -279,7 +279,7 @@ def _build_export_config(env_path: str) -> dict:
     return config
 
 
-def _apply_config(config: dict, env_path: str) -> list[dict]:
+def _apply_config(config: dict, env_path: str, status_cb=None) -> list[dict]:
     results = []
     if "wifi" in config:
         wifi = config["wifi"]
@@ -288,9 +288,13 @@ def _apply_config(config: dict, env_path: str) -> list[dict]:
         if ssid:
             current_ssid = _get_current_ssid()
             if ssid != current_ssid:
+                if status_cb:
+                    status_cb(f"Connecting to '{ssid}'...")
                 result = _apply_wifi(ssid, password)
                 results.append({"action": "wifi", **result})
             else:
+                if status_cb:
+                    status_cb(f"Already on '{ssid}'")
                 results.append({"action": "wifi", "success": True, "message": f"Already connected to '{ssid}'"})
 
     if "server" in config:
@@ -299,13 +303,15 @@ def _apply_config(config: dict, env_path: str) -> list[dict]:
         if port:
             current_port = _get_current_port(env_path)
             if port != current_port:
+                if status_cb:
+                    status_cb(f"Changing port to {port}...")
                 ok = _apply_port(port, env_path)
                 results.append({"action": "port", "success": ok, "message": f"Port changed to {port}" if ok else "Port change failed"})
 
     return results
 
 
-def _import_config(config_path: Path, uuid: str | None, env_path: str):
+def _import_config(config_path: Path, uuid: str | None, env_path: str, status_cb=None):
     try:
         content = config_path.read_text()
         content_hash = hashlib.sha256(content.encode()).hexdigest()
@@ -313,6 +319,8 @@ def _import_config(config_path: Path, uuid: str | None, env_path: str):
         if uuid:
             applied = _load_config_applied()
             if applied.get(uuid) == content_hash:
+                if status_cb:
+                    status_cb("Config unchanged")
                 _set_import_result(True, "Config unchanged, skipping")
                 return
 
@@ -323,7 +331,7 @@ def _import_config(config_path: Path, uuid: str | None, env_path: str):
             applied[uuid] = content_hash
             _save_config_applied(applied)
 
-        results = _apply_config(config, env_path)
+        results = _apply_config(config, env_path, status_cb=status_cb)
         failures = [r for r in results if not r.get("success")]
         if failures:
             msgs = "; ".join(f"{r['action']}: {r.get('message', 'unknown error')}" for r in failures)
@@ -336,7 +344,9 @@ def _import_config(config_path: Path, uuid: str | None, env_path: str):
         print(f"[usb_config] Import failed: {e}", flush=True)
 
 
-def _export_config(mount_point: str, uuid: str | None, env_path: str):
+def _export_config(mount_point: str, uuid: str | None, env_path: str, status_cb=None):
+    if status_cb:
+        status_cb("Saving current config to USB...")
     config = _build_export_config(env_path)
     content = json.dumps(config, indent=2)
     config_path = Path(mount_point) / CONFIG_FILE_NAME
@@ -345,9 +355,9 @@ def _export_config(mount_point: str, uuid: str | None, env_path: str):
     print(f"[usb_config] Exported config to {mount_point}", flush=True)
 
 
-def handle_partition_config(mount_point: str, uuid: str | None, env_path: str):
+def handle_partition_config(mount_point: str, uuid: str | None, env_path: str, status_cb=None):
     config_path = Path(mount_point) / CONFIG_FILE_NAME
     if config_path.exists():
-        _import_config(config_path, uuid, env_path)
+        _import_config(config_path, uuid, env_path, status_cb=status_cb)
     else:
-        _export_config(mount_point, uuid, env_path)
+        _export_config(mount_point, uuid, env_path, status_cb=status_cb)

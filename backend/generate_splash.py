@@ -156,7 +156,7 @@ def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[i
         font_status = _load_font(24)
         sb = draw.textbbox((0, 0), status_text, font=font_status)
         status_y = height - sb[3] - 50
-        draw.text((mid - sb[2] // 2, status_y), status_text, fill=(255, 220, 50), font=font_status)
+        draw.text((mid - sb[2] // 2, status_y), status_text, fill=(255, 0, 102), font=font_status)
 
     img.save(output_path, "PNG")
     return (width, height)
