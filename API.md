@@ -1,4 +1,4 @@
-# Cutie Pi API Reference
+# Cuetie Pi API Reference
 
 All endpoints are at `http://<host>:8000`. All responses are JSON.
 
