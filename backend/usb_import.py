@@ -211,10 +211,7 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
             except Exception:
                 pass
 
-    if parts:
-        _splash("Reading USB...")
-    else:
-        _splash("")
+    _splash("")
 
     for info in parts:
         dev_name = info.get("name", "")
@@ -227,6 +224,8 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
                 if time.time() - last < COOLDOWN_SECONDS:
                     continue
                 _last_process_time[uuid] = time.time()
+
+        _splash("Reading USB...")
 
         was_mounted = bool(info.get("mountpoint"))
         mount_point = _ensure_mountpoint(info)
