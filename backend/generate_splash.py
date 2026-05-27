@@ -60,6 +60,7 @@ def _hex_color(rgb: tuple[int, int, int]) -> str:
 
 
 CUE_FILE = Path(__file__).parent / "cues.json"
+PORT = os.getenv("PORT", "8000")
 
 
 def generate(logo_path: str, output_path: str) -> tuple[int, int]:
@@ -113,7 +114,7 @@ def generate(logo_path: str, output_path: str) -> tuple[int, int]:
 
     # QR code
     qr = qrcode.QRCode(box_size=10, border=2)
-    qr.add_data(f"http://{primary_ip}:8000")
+    qr.add_data(f"http://{primary_ip}:{PORT}")
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color=_hex_color(WHITE), back_color=_hex_color(BG))
     qr_size = min(200, height // 4)
@@ -123,7 +124,7 @@ def generate(logo_path: str, output_path: str) -> tuple[int, int]:
     y += qr_size + 15
 
     # URL label below QR
-    url = f"{primary_ip}:8000"
+    url = f"{primary_ip}:{PORT}"
     ub = draw.textbbox((0, 0), url, font=font_qr_label)
     draw.text((left_cx - ub[2] // 2, y), url, fill=WHITE, font=font_qr_label)
 
