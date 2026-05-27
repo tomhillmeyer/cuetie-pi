@@ -70,6 +70,7 @@ def _usb_partitions() -> list[dict]:
             continue
         for child in dev.get("children", []):
             if child.get("fstype"):
+                child["parent"] = dev.get("name")
                 parts.append(child)
     return parts
 
@@ -98,6 +99,26 @@ def _unmount(dev_name: str):
         )
     except Exception:
         pass
+
+
+def _power_off(parent_name: str):
+    try:
+        subprocess.run(["sync"], capture_output=True, timeout=10)
+    except Exception:
+        pass
+    for attempt in range(3):
+        try:
+            result = subprocess.run(
+                ["sudo", "udisksctl", "power-off", "-b", f"/dev/{parent_name}"],
+                capture_output=True, timeout=30,
+            )
+            if result.returncode == 0:
+                return
+        except Exception:
+            pass
+        if attempt < 2:
+            import time
+            time.sleep(1)
 
 
 def _ensure_mountpoint(info: dict) -> str | None:
@@ -156,18 +177,15 @@ def _import_files(files: list[Path], media_dir: str, cues_file: str) -> int:
     return count
 
 
-def import_usb(media_dir: str, cues_file: str) -> int:
+def import_usb(media_dir: str, cues_file: str, env_path: str | None = None) -> int:
     _load_imported_uuids()
     parts = _usb_partitions()
     total = 0
 
     for info in parts:
         dev_name = info.get("name", "")
-
+        parent_name = info.get("parent", dev_name.rstrip("0123456789"))
         uuid = _get_device_uuid(dev_name)
-        with _lock:
-            if uuid and uuid in _imported_uuids:
-                continue
 
         was_mounted = bool(info.get("mountpoint"))
         mount_point = _ensure_mountpoint(info)
@@ -176,19 +194,23 @@ def import_usb(media_dir: str, cues_file: str) -> int:
 
         try:
             files = _scan_files(mount_point)
-            if not files:
-                continue
+            if files:
+                count = _import_files(files, media_dir, cues_file)
+                if count:
+                    print(
+                        f"[usb] Imported {count} file(s) from {dev_name}",
+                        flush=True,
+                    )
+                    total += count
 
-            count = _import_files(files, media_dir, cues_file)
-            if count:
-                print(
-                    f"[usb] Imported {count} file(s) from {dev_name}",
-                    flush=True,
-                )
-                total += count
+            if env_path:
+                import usb_config
+                usb_config.handle_partition_config(mount_point, uuid, env_path)
         finally:
             if not was_mounted:
                 _unmount(dev_name)
+            if parent_name:
+                _power_off(parent_name)
             if uuid:
                 with _lock:
                     _imported_uuids.add(uuid)

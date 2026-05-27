@@ -55,7 +55,10 @@ sudo apt install -y \
   python3-pip \
   python3-dev \
   libevdev2 \
-  pmount
+  pmount \
+  udisks2 \
+  network-manager \
+  wireless-tools
 
 # ---- Step 2: seatd ----
 echo ""
@@ -74,6 +77,14 @@ sudo usermod -aG video "$USER"
 sudo usermod -aG render "$USER"
 sudo usermod -aG tty "$USER"
 sudo usermod -aG input "$USER"
+sudo usermod -aG netdev "$USER"
+
+# ---- Step 3b: Sudoers for USB config management ----
+echo ""
+echo "==> Configuring sudoers for USB config management..."
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart cuetie-pi, /usr/bin/nmcli, /usr/bin/udisksctl" | \
+  sudo tee /etc/sudoers.d/cuetie-pi > /dev/null
+sudo chmod 440 /etc/sudoers.d/cuetie-pi
 
 # ---- Step 4: Copy code ----
 echo ""

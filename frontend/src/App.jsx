@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import UploadZone from './components/UploadZone'
 import CueList from './components/CueList'
 import StatsPanel from './components/StatsPanel'
-import { subscribeStatus, subscribeCuesUpdated, subscribeConnection } from './api'
+import { subscribeStatus, subscribeCuesUpdated, subscribeConnection, getServerInfo } from './api'
 import { FaStop } from "react-icons/fa";
 
 
@@ -10,6 +10,11 @@ function App() {
   const [status, setStatus] = useState({ status: 'idle', filename: null })
   const [refreshKey, setRefreshKey] = useState(0)
   const [connected, setConnected] = useState(null)
+  const [serverInfo, setServerInfo] = useState(null)
+
+  useEffect(() => {
+    getServerInfo().then(setServerInfo).catch(() => {})
+  }, [])
 
   useEffect(() => subscribeStatus(msg => {
     setStatus({ status: msg.status, filename: msg.filename })
@@ -46,9 +51,14 @@ function App() {
   return (
     <div className="container">
       <div className="header-row">
-        <div className="logo-wrapper">
-          <img src="/logo.png" alt="Cutie Pi" className="logo" />
-          <span className="app-version">v{__APP_VERSION__}</span>
+        <div className="header-top-row">
+          <div className="logo-wrapper">
+            <img src="/logo.png" alt="Cutie Pi" className="logo" />
+          </div>
+          <div className="server-info">
+            <span className="info-version">v{__APP_VERSION__}</span>
+            <span className="info-address">{serverInfo ? `${serverInfo.ip}:${serverInfo.port}` : ''}</span>
+          </div>
         </div>
         <UploadZone onUpload={handleUpload} />
         <button className={isPlaying ? 'stopButton stopButtonActive' : 'stopButton'} onClick={handleStop} disabled={!isPlaying}>

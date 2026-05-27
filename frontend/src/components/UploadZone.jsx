@@ -15,6 +15,8 @@ function UploadZone({ onUpload }) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null)
   const [currentFile, setCurrentFile] = useState(null)
+  const [cancelled, setCancelled] = useState(false)
+  const abortRef = useRef(null)
   const inputRef = useRef(null)
 
   const handleFiles = async (files) => {
@@ -26,26 +28,39 @@ function UploadZone({ onUpload }) {
 
     setUploading(true)
     setUploadProgress(null)
+    setCancelled(false)
 
     try {
       for (const file of valid) {
         setCurrentFile(file.name)
         setUploadProgress({ type: 'uploading' })
-        await uploadMedia(file, (p) => {
+        const { promise, abort } = uploadMedia(file, (p) => {
           setUploadProgress({ type: 'uploading', ...p })
         })
+        abortRef.current = abort
+        await promise
+        abortRef.current = null
         const cuesRes = await fetch('/api/cues')
         const cues = await cuesRes.json()
         const cue = cues[cues.length - 1]
         onUpload?.(cue)
       }
     } catch (err) {
-      console.error('Upload failed:', err)
+      if (err.message === 'Upload cancelled') {
+        setCancelled(true)
+      } else {
+        console.error('Upload failed:', err)
+      }
     } finally {
       setUploading(false)
       setUploadProgress(null)
       setCurrentFile(null)
+      abortRef.current = null
     }
+  }
+
+  const handleCancel = () => {
+    abortRef.current?.()
   }
 
   const handleDrop = (e) => {
@@ -66,7 +81,6 @@ function UploadZone({ onUpload }) {
   }
 
   return (
-    <div>
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -83,24 +97,28 @@ function UploadZone({ onUpload }) {
           className="uploadZoneInput"
         />
         {uploading ? (
-          <div className="progressContainer">
-            <div className="progressText">
-              {uploadProgress?.type === 'uploading'
-                ? `${formatBytes(uploadProgress.loaded)} of ${formatBytes(uploadProgress.total)} uploaded`
-                : 'Processing...'}
+          <div className="uploadProgressRow">
+            <div className="uploadProgressLeft">
+              <span className="progressFilename">
+                {cancelled ? 'Cancelled' : currentFile}
+              </span>
+              <div className="progressBar">
+                <div
+                  className="progressFill"
+                  style={{ width: `${cancelled ? 0 : uploadProgress?.percent || 0}%` }}
+                />
+              </div>
             </div>
-            <div className="progressBar">
-              <div
-                className="progressFill"
-                style={{ width: `${uploadProgress?.percent || 0}%` }}
-              />
-            </div>
+            {!cancelled && (
+              <button className="cancelBtn" onClick={handleCancel}>
+                Cancel
+              </button>
+            )}
           </div>
         ) : (
-          'Drop files here / Browse'
+          <><span className="desktop-only">Drop files here / </span>Browse</>
         )}
       </div>
-    </div>
   )
 }
 

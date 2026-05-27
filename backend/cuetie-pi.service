@@ -6,7 +6,9 @@ Wants=weston.service
 [Service]
 Type=simple
 WorkingDirectory=/home/pi/cuetie-pi/backend
-ExecStart=/home/pi/cuetie-pi/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Environment=PORT=8000
+EnvironmentFile=/home/pi/cuetie-pi/backend/.env
+ExecStart=/home/pi/cuetie-pi/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT}
 Restart=always
 RestartSec=5
 User=pi

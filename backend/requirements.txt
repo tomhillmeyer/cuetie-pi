@@ -7,3 +7,4 @@ evdev
 requests
 Pillow
 qrcode[pil]
+aiofiles

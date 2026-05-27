@@ -26,6 +26,9 @@ fi
 
 _ssh() { $SSH_CMD "$PI_USER@$PI_HOST" "$*"; }
 
+echo "==> Backing up cues and media on Pi..."
+_ssh "cp $PI_PATH/backend/cues.json /tmp/cues.json.bak 2>/dev/null; cp -r $PI_PATH/backend/media /tmp/media.bak 2>/dev/null; true"
+
 echo "==> Syncing code to Pi (preserving media, cues, and .env)..."
 rsync -avz --delete --rsh="$RSYNC_RSH" \
   --exclude='.git/' \
@@ -34,6 +37,9 @@ rsync -avz --delete --rsh="$RSYNC_RSH" \
   --exclude='backend/media/' \
   --exclude='backend/cues.json' \
   --exclude='backend/.env' \
+  --exclude='backend/imported_devices.json' \
+  --exclude='backend/config_applied.json' \
+  --exclude='backend/splash.png' \
   --exclude='frontend/node_modules/' \
   --exclude='out/' \
   --exclude='scripts/' \
@@ -43,6 +49,23 @@ rsync -avz --delete --rsh="$RSYNC_RSH" \
   --exclude='testing.md' \
   --exclude='.DS_Store' \
   ./ "$PI_USER@$PI_HOST:$PI_PATH/"
+
+echo "==> Restoring cues and media if missing..."
+_ssh "test -f $PI_PATH/backend/cues.json || cp /tmp/cues.json.bak $PI_PATH/backend/cues.json 2>/dev/null; test -d $PI_PATH/backend/media || cp -r /tmp/media.bak $PI_PATH/backend/media 2>/dev/null; true"
+
+echo "==> Ensuring .env exists..."
+_ssh "test -f $PI_PATH/backend/.env || cp $PI_PATH/backend/.env.example $PI_PATH/backend/.env"
+
+echo "==> Ensuring Python venv exists..."
+_ssh "test -d $PI_PATH/backend/venv || (cd $PI_PATH/backend && python3 -m venv venv)"
+echo "==> Installing/upgrading Python dependencies..."
+_ssh "cd $PI_PATH/backend && ./venv/bin/pip install -r requirements.txt"
+
+echo "==> Configuring sudoers for USB config management..."
+_ssh "echo '$PI_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart cuetie-pi, /usr/bin/nmcli, /usr/bin/udisksctl' > /tmp/cuetie-sudoers"
+_ssh "$(_sudocmd cp /tmp/cuetie-sudoers /etc/sudoers.d/cuetie-pi)"
+_ssh "$(_sudocmd chmod 440 /etc/sudoers.d/cuetie-pi)"
+_ssh "rm /tmp/cuetie-sudoers"
 
 echo "==> Syncing weston config..."
 _ssh "$(_sudocmd mkdir -p /etc/xdg/weston)"
@@ -56,8 +79,8 @@ echo "==> Ensuring seatd is installed..."
 _ssh "$(_sudocmd apt install -y seatd)" || true
 _ssh "$(_sudocmd systemctl enable --now seatd)" || true
 
-echo "==> Installing pmount..."
-_ssh "$(_sudocmd apt install -y pmount)" || true
+echo "==> Installing pmount and udisks2..."
+_ssh "$(_sudocmd apt install -y pmount udisks2)" || true
 
 echo "==> Restarting services..."
 _ssh "$(_sudocmd systemctl daemon-reload)"

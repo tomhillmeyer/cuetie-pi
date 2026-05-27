@@ -279,6 +279,13 @@ def play(cue_id: str, filepath: str, media_type: str | None = None, display: str
         _CURRENT_STATS["filename"] = filepath
 
 
+def set_loop(loop: bool) -> None:
+    try:
+        _query_mpv(["set", "loop-file", "inf" if loop else "no"])
+    except Exception:
+        pass
+
+
 def stop() -> None:
     global _current_file, _current_cue_id, _showing_black
 

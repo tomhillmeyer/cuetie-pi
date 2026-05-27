@@ -74,7 +74,6 @@ function CueList({ refreshKey }) {
 
   return (
     <div className="cueListContainer" ref={containerRef}>
-      <h2 className="cueListHeading">CUE LIST</h2>
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="cues">
           {(provided) => (

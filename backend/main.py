@@ -4,6 +4,8 @@ import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 
+import aiofiles
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +17,7 @@ import cues
 import keyboard
 import generate_splash
 import usb_import
+import usb_config
 
 load_dotenv()
 
@@ -120,7 +123,8 @@ async def _usb_import_loop():
     while True:
         await asyncio.sleep(5)
         try:
-            count = usb_import.import_usb(media_dir, cues_file)
+            env_path = os.path.join(os.path.dirname(__file__), ".env")
+            count = usb_import.import_usb(media_dir, cues_file, env_path=env_path)
             if count:
                 await broadcast_cues_updated()
                 _refresh_cues_display()
@@ -196,9 +200,9 @@ async def upload_media(file: UploadFile = File(...)):
 
     safe_name = Path(filename).name
     save_path = Path(media_dir) / safe_name
-    with open(save_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    content = await file.read()
+    async with aiofiles.open(save_path, "wb") as f:
+        await f.write(content)
 
     player.resize_image(str(save_path))
 
@@ -271,6 +275,13 @@ async def toggle_loop(cue_id: str):
     success = cues.update_cue_loop(cues_file, cue_id)
     if not success:
         raise HTTPException(status_code=404, detail="Cue not found")
+
+    if player.get_current_playing_cue_id() == cue_id:
+        all_cues = cues.load_cues(cues_file)
+        cue = next((c for c in all_cues if c["id"] == cue_id), None)
+        if cue and cue.get("type") == "video":
+            player.set_loop(cue.get("loop", False))
+
     all_cues = cues.load_cues(cues_file)
     cue = next((c for c in all_cues if c["id"] == cue_id), None)
     return {"success": True, "loop": cue.get("loop", False) if cue else False}
@@ -291,6 +302,21 @@ def get_status():
 @app.get("/api/stats")
 def get_stats():
     return player.get_stats()
+
+
+@app.get("/api/info")
+def get_info():
+    ips = generate_splash.get_primary_ip()
+    port = os.getenv("PORT", "8000")
+    return {
+        "ip": ips[0] if ips else "127.0.0.1",
+        "port": int(port),
+    }
+
+
+@app.get("/api/config-import-status")
+def get_config_import_status():
+    return usb_config.get_last_import_result()
 
 
 @app.get("/api/debug")

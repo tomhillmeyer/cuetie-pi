@@ -5,17 +5,18 @@ export async function getCues() {
   return res.json()
 }
 
-export async function uploadMedia(file, onProgress, transcoded = false) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/upload')
-    
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress) {
-        const percent = Math.round((e.loaded / e.total) * 100)
-        onProgress({ loaded: e.loaded, total: e.total, percent })
-      }
+export function uploadMedia(file, onProgress, transcoded = false) {
+  const xhr = new XMLHttpRequest()
+  xhr.open('POST', '/api/upload')
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable && onProgress) {
+      const percent = Math.round((e.loaded / e.total) * 100)
+      onProgress({ loaded: e.loaded, total: e.total, percent })
     }
+  }
+
+  const promise = new Promise((resolve, reject) => {
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(JSON.parse(xhr.responseText))
@@ -24,11 +25,14 @@ export async function uploadMedia(file, onProgress, transcoded = false) {
       }
     }
     xhr.onerror = () => reject(new Error('Upload failed'))
+    xhr.onabort = () => reject(new Error('Upload cancelled'))
     const formData = new FormData()
     formData.append('file', file)
     formData.append('transcoded', transcoded)
     xhr.send(formData)
   })
+
+  return { promise, abort: () => xhr.abort() }
 }
 
 export async function reorderCues(cueIds) {
@@ -75,6 +79,11 @@ export async function getDebug() {
   return res.json()
 }
 
+export async function getServerInfo() {
+  const res = await fetch(`${BASE}/info`)
+  return res.json()
+}
+
 let ws = null
 const statusListeners = new Set()
 const statsListeners = new Set()
@@ -84,6 +93,7 @@ let _connected = null
 let reconnectTimer = null
 let heartbeatTimer = null
 let lastMsgTime = 0
+let disconnectPending = null
 
 function notifyConnection(connected) {
   _connected = connected
@@ -99,15 +109,19 @@ function startHeartbeat() {
       return
     }
     if (Date.now() - lastMsgTime > 6000) {
-      notifyConnection(false)
-      ws.close()
-      clearInterval(heartbeatTimer)
+      if (!disconnectPending) {
+        disconnectPending = setTimeout(() => {
+          disconnectPending = null
+          notifyConnection(false)
+          ws.close()
+          clearInterval(heartbeatTimer)
+        }, 3000)
+      }
       return
     }
     try {
       ws.send("ping")
     } catch {
-      notifyConnection(false)
       ws.close()
       clearInterval(heartbeatTimer)
     }
@@ -118,11 +132,19 @@ function connectStatusWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
   ws = new WebSocket(`${proto}//${location.host}/ws/status`)
   ws.onopen = () => {
+    if (disconnectPending) {
+      clearTimeout(disconnectPending)
+      disconnectPending = null
+    }
     notifyConnection(true)
     startHeartbeat()
   }
   ws.onmessage = e => {
     lastMsgTime = Date.now()
+    if (disconnectPending) {
+      clearTimeout(disconnectPending)
+      disconnectPending = null
+    }
     if (e.data === "pong") return
     const msg = JSON.parse(e.data)
     if (msg.type === 'stats') {
