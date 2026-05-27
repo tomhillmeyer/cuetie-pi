@@ -71,7 +71,7 @@ Play a cue by UUID. Also sets the cue pointer to this cue's position.
 
 ### POST /api/cues/{cue_id}/loop
 
-Toggle the loop flag on a video cue. When looping is enabled, the video restarts immediately after reaching the end.
+Toggle the loop flag on a video cue. When looping is enabled, the video restarts immediately after reaching the end. Updates apply immediately to the currently-playing cue if it matches `cue_id`.
 
 **Response**:
 ```json
@@ -111,76 +111,72 @@ Return current playback status (from mpv).
 
 ---
 
-## Index-based Triggering
+## Server Info & Config
 
-These endpoints use an internal cue pointer (1-based, in-memory, resets on restart).
+### GET /api/info
 
-### POST /api/go
+Return server connection info and instance name.
 
-Advance the pointer to the next cue and play it. Wraps to cue 1 if already at the last cue.
+**Response**:
+```json
+{
+  "ip": "192.168.1.100",
+  "port": 8000,
+  "name": "Stage Left"
+}
+```
+
+- `name` is the editable instance name (set via `POST /api/name` or USB config). Empty string if not set.
+
+### POST /api/name
+
+Set the instance name. Written to `.env` and reflected immediately on the splash screen and browser title.
+
+**Body**:
+```json
+{
+  "name": "Stage Left"
+}
+```
 
 **Response**:
 ```json
 {
   "success": true,
-  "cue": { "id": "...", ... },
-  "index": 2
+  "name": "Stage Left"
 }
 ```
 
-**Error** (no cues):
+### GET /api/config-import-status
+
+Returns the result of the last USB config import/export operation.
+
+**Response** (successful import):
+```json
+{
+  "success": true,
+  "message": "Config applied successfully",
+  "details": ""
+}
+```
+
+**Response** (export):
+```json
+{
+  "success": true,
+  "message": "Config exported to USB",
+  "details": ""
+}
+```
+
+**Response** (import failure):
 ```json
 {
   "success": false,
-  "error": "No cues in list"
+  "message": "Import completed with failures",
+  "details": "wifi: nmcli connect failed: ..."
 }
 ```
-
-### POST /api/go/{n}
-
-Play cue number `n` (1-based). Sets the pointer to `n`.
-
-**Response**: Same as `/api/go`.
-
-**Error** (invalid n):
-```json
-{
-  "success": false,
-  "error": "Invalid cue number: 0"
-}
-```
-
-### POST /api/previous
-
-Play the previous cue. Wraps to the last cue if already at the first.
-
-**Response**: Same format as `/api/go`.
-
-### GET /api/current
-
-Return the currently pointed-to cue (not necessarily the playing cue).
-
-**Response** (no cues or pointer at 0):
-```json
-{
-  "index": 0,
-  "cue": null
-}
-```
-
-**Response** (pointing to cue 2):
-```json
-{
-  "index": 2,
-  "cue": { "id": "...", ... }
-}
-```
-
-### POST /api/reset
-
-Reset the cue pointer to 0 (before cue 1). Does not trigger playback.
-
-**Response**: `{"success": true, "index": 0}`
 
 ---
 

@@ -8,8 +8,9 @@ Most digital signage applications for Raspberry Pi require you to set time of da
 ### Web GUI
 - Drag-and-drop media upload (PNG, JPG, GIF, MP4, MOV, WEBM)
 - Drag-to-reorder cue list
-- Play/stop controls per cue
+- Play/stop/loop controls per cue
 - Live playback stats
+- Editable instance name (appears in browser title and on-device splash screen)
 - Works on any browser on the same network
 
 ### REST API
@@ -18,6 +19,7 @@ Full API reference at [`API.md`](API.md).
 ### USB Auto-Import
 - Plug in a USB drive with media files into the Pi and they're automatically copied onto the device and added to the end of the cue list. 
 - Supports exFAT/FAT32/NTFS. Formats: JPG, PNG, GIF, MP4, MOV, WEBM.
+- **USB Config**: A `cuetiepi-config.json` file on the USB configures the Pi — WiFi network, server port, and instance name. If no config file is present, the Pi exports its current settings to the USB automatically.
 
 ### Hardware Control
 - Plug a keyboard or slide advancer (DSAN PerfectCue, etc.) into the Pi and flip through the cue list.
@@ -50,7 +52,7 @@ Full API reference at [`API.md`](API.md).
 curl -fsSL https://raw.githubusercontent.com/tomhillmeyer/cuetie-pi/main/install.sh | bash
 ```
 
-3. Open `http://<pi-ip-address>:8000` in your browser, or scan the QR code on the splash screen.
+3. Open `http://<pi-ip-address>:8000` in your browser, or scan the QR code on the splash screen. The on-device splash screen shows the instance name, IP address, QR code, and current cue list.
 
 
 
@@ -58,6 +60,17 @@ curl -fsSL https://raw.githubusercontent.com/tomhillmeyer/cuetie-pi/main/install
 ### Updates
 Run the same install script again to update to the latest version. The installer preserves your `cues.json`, uploaded media, and `.env` configuration.
 
+
+## On-Device Splash Screen
+
+When the device boots, the connected display shows a splash screen with:
+- Cutie Pi logo and optional instance name
+- IP address and port as a QR code and text label
+- Cue list (up to 30 cues)
+- Status messages during USB import
+- Version footer
+
+The background color of status messages on the splash is `#ff0066` (accent color).
 
 ## Local Development
 
