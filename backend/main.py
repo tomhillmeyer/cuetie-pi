@@ -311,10 +311,22 @@ def get_stats():
 def get_info():
     ips = generate_splash.get_primary_ip()
     port = os.getenv("PORT", "8000")
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    name = usb_config._get_current_name(env_path)
     return {
         "ip": ips[0] if ips else "127.0.0.1",
         "port": int(port),
+        "name": name,
     }
+
+
+@app.post("/api/name")
+async def set_name(body: dict):
+    name = body.get("name", "")
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    ok = usb_config._apply_name(name, env_path)
+    _refresh_cues_display()
+    return {"success": ok, "name": name}
 
 
 @app.get("/api/config-import-status")

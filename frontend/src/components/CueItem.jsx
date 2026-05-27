@@ -4,6 +4,8 @@ import { playCue, stopPlayback, deleteCue, toggleLoop, subscribeStatus } from '.
 import { MdDelete } from "react-icons/md";
 import { FaPlay, FaStop } from "react-icons/fa";
 import { FaDeleteLeft, FaRepeat } from "react-icons/fa6";
+import { RxDragHandleDots2 } from "react-icons/rx";
+
 
 function CueItem({ cue, index, onUpdate, onToggleLoop, selected, onSelect }) {
   const [playing, setPlaying] = useState(false)
@@ -57,7 +59,7 @@ function CueItem({ cue, index, onUpdate, onToggleLoop, selected, onSelect }) {
           onClick={handleClick}
           data-cue-item={cue.id}
         >
-          <span className="cueHandle" {...provided.dragHandleProps}>☰</span>
+          <span className="cueHandle" {...provided.dragHandleProps}><RxDragHandleDots2 /></span>
           <span className="cueNumber">{index + 1}</span>
           <span className="cueLabel" title={cue.label}>{cue.label}</span>
           {cue.type === 'video' && (

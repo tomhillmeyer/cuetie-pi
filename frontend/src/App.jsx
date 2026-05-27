@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import UploadZone from './components/UploadZone'
 import CueList from './components/CueList'
 import StatsPanel from './components/StatsPanel'
-import { subscribeStatus, subscribeCuesUpdated, subscribeConnection, getServerInfo } from './api'
+import { subscribeStatus, subscribeCuesUpdated, subscribeConnection, getServerInfo, setName } from './api'
 import { FaStop } from "react-icons/fa";
 
 
@@ -11,10 +11,18 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [connected, setConnected] = useState(null)
   const [serverInfo, setServerInfo] = useState(null)
+  const [name, setName_] = useState('')
 
   useEffect(() => {
-    getServerInfo().then(setServerInfo).catch(() => {})
+    getServerInfo().then(info => {
+      setServerInfo(info)
+      setName_(info.name || '')
+    }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    document.title = name ? `${name} - Cuetie Pi` : 'Cuetie Pi'
+  }, [name])
 
   useEffect(() => subscribeStatus(msg => {
     setStatus({ status: msg.status, filename: msg.filename })
@@ -51,15 +59,19 @@ function App() {
   return (
     <div className="container">
       <div className="header-row">
-        <div className="header-top-row">
-          <div className="logo-wrapper">
-            <img src="/logo.png" alt="Cutie Pi" className="logo" />
+          <div className="header-top-row">
+            <div className="logo-wrapper">
+              <img src="/logo.png" alt="Cutie Pi" className="logo" />
+            </div>
+            <div className="server-info">
+              <span className="info-version">v{__APP_VERSION__}</span>
+              <span className="info-address">{serverInfo ? `${serverInfo.ip}:${serverInfo.port}` : ''}</span>
+            </div>
           </div>
-          <div className="server-info">
-            <span className="info-version">v{__APP_VERSION__}</span>
-            <span className="info-address">{serverInfo ? `${serverInfo.ip}:${serverInfo.port}` : ''}</span>
-          </div>
-        </div>
+          <input className="nameInput" placeholder="Name" value={name}
+            onChange={e => setName_(e.target.value)}
+            onBlur={() => setName(name)}
+            onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }} />
         <UploadZone onUpload={handleUpload} />
         <button className={isPlaying ? 'stopButton stopButtonActive' : 'stopButton'} onClick={handleStop} disabled={!isPlaying}>
           <FaStop /> STOP

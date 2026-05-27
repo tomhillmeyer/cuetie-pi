@@ -84,6 +84,15 @@ export async function getServerInfo() {
   return res.json()
 }
 
+export async function setName(name) {
+  const res = await fetch(`${BASE}/name`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  return res.json()
+}
+
 let ws = null
 const statusListeners = new Set()
 const statsListeners = new Set()

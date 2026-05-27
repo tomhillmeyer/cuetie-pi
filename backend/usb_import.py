@@ -248,6 +248,12 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
                 _splash("Updating network settings...")
                 import usb_config
                 usb_config.handle_partition_config(mount_point, uuid, env_path, status_cb=_splash)
+                if splash_logo and splash_output:
+                    try:
+                        generate_splash.generate(splash_logo, splash_output)
+                        player.refresh_splash()
+                    except Exception:
+                        pass
         finally:
             if not was_mounted:
                 _unmount(dev_name)

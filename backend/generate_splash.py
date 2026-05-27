@@ -60,7 +60,20 @@ def _hex_color(rgb: tuple[int, int, int]) -> str:
 
 
 CUE_FILE = Path(__file__).parent / "cues.json"
+ENV_FILE = Path(__file__).parent / ".env"
 PORT = os.getenv("PORT", "8000")
+
+
+def _get_env_name() -> str:
+    try:
+        if ENV_FILE.exists():
+            for line in ENV_FILE.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("NAME="):
+                    return line.split("=", 1)[1]
+    except Exception:
+        pass
+    return os.getenv("NAME", "")
 
 
 def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[int, int]:
@@ -69,6 +82,7 @@ def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[i
     if not ips:
         ips = ["127.0.0.1"]
     primary_ip = ips[0]
+    instance_name = _get_env_name()
     cue_list = cues.load_cues(str(CUE_FILE)) if CUE_FILE.exists() else []
 
     BG = (0, 0, 0)
@@ -78,6 +92,7 @@ def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[i
     draw = ImageDraw.Draw(img)
 
     font_large = _load_font(48)
+    font_name = _load_font(36)
     font_qr_label = _load_font(20)
     font_body = _load_font(20)
 
@@ -111,6 +126,12 @@ def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[i
         tb = draw.textbbox((0, 0), "Cutie Pi", font=font_large)
         draw.text((left_cx - tb[2] // 2, y), "Cutie Pi", fill=WHITE, font=font_large)
         y += 60
+
+    # Instance name (optional, between logo and QR)
+    if instance_name:
+        nb = draw.textbbox((0, 0), instance_name, font=font_name)
+        draw.text((left_cx - nb[2] // 2, y), instance_name, fill=WHITE, font=font_name)
+        y += nb[3] + 30
 
     # QR code
     qr = qrcode.QRCode(box_size=10, border=2)

@@ -260,6 +260,42 @@ def _apply_port(port: int, env_path: str) -> bool:
         return False
 
 
+def _get_current_name(env_path: str) -> str:
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("NAME="):
+                    val = line.split("=", 1)[1]
+                    return val
+    except Exception:
+        pass
+    return ""
+
+
+def _apply_name(name: str, env_path: str) -> bool:
+    try:
+        path = Path(env_path)
+        if not path.exists():
+            return False
+        lines = path.read_text().splitlines()
+        found = False
+        new_lines = []
+        for line in lines:
+            if line.strip().startswith("NAME="):
+                new_lines.append(f"NAME={name}")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"NAME={name}")
+        path.write_text("\n".join(new_lines) + "\n")
+        return True
+    except Exception as e:
+        print(f"[usb_config] Name write error: {e}", flush=True)
+        return False
+
+
 def _build_export_config(env_path: str) -> dict:
     config = {}
     conn_name = _get_active_wifi_connection_name()
@@ -272,6 +308,9 @@ def _build_export_config(env_path: str) -> dict:
         "ssid": ssid,
         "password": password,
     }
+    name = _get_current_name(env_path)
+    if name:
+        config["name"] = name
     port = _get_current_port(env_path)
     config["server"] = {
         "port": port,
@@ -296,6 +335,16 @@ def _apply_config(config: dict, env_path: str, status_cb=None) -> list[dict]:
                 if status_cb:
                     status_cb(f"Already on '{ssid}'")
                 results.append({"action": "wifi", "success": True, "message": f"Already connected to '{ssid}'"})
+
+    if "name" in config:
+        name_val = config["name"]
+        if name_val:
+            current_name = _get_current_name(env_path)
+            if name_val != current_name:
+                if status_cb:
+                    status_cb(f"Setting name to '{name_val}'...")
+                ok = _apply_name(name_val, env_path)
+                results.append({"action": "name", "success": ok, "message": f"Name set to '{name_val}'" if ok else "Name change failed"})
 
     if "server" in config:
         server = config["server"]
