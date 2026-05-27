@@ -261,7 +261,7 @@ def _apply_port(port: int, env_path: str) -> bool:
 
 
 def _build_export_config(env_path: str) -> dict:
-    config = {"version": 1}
+    config = {}
     conn_name = _get_active_wifi_connection_name()
     ssid = ""
     password = ""

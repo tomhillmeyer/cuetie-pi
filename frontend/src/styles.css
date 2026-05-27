@@ -6,11 +6,11 @@
   --text-primary: #cccccc;
   --text-secondary: #888888;
   --text-muted: #666666;
-  --accent: #4CAF50;
+  --accent: #ff0066;
   --danger-bg: #4a2020;
   --danger-border: #6a3030;
   --danger-text: #ff6666;
-  --debug-text: #4ade80;
+  --debug-text: #ff0066;
 }
 
 * {

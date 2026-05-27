@@ -124,7 +124,10 @@ async def _usb_import_loop():
         await asyncio.sleep(5)
         try:
             env_path = os.path.join(os.path.dirname(__file__), ".env")
-            count = usb_import.import_usb(media_dir, cues_file, env_path=env_path)
+            count = usb_import.import_usb(
+                media_dir, cues_file, env_path=env_path,
+                splash_logo=str(splash_logo), splash_output=str(splash_path),
+            )
             if count:
                 await broadcast_cues_updated()
                 _refresh_cues_display()

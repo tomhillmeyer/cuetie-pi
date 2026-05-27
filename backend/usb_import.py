@@ -3,9 +3,11 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 import cues
+import generate_splash
 import player
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm"}
@@ -101,24 +103,35 @@ def _unmount(dev_name: str):
         pass
 
 
-def _power_off(parent_name: str):
+_last_splash_text: str = ""
+
+
+def _power_off(parent_name: str, dev_name: str):
     try:
         subprocess.run(["sync"], capture_output=True, timeout=10)
     except Exception:
         pass
+    subprocess.run(["sudo", "umount", "-f", f"/dev/{dev_name}"],
+                   capture_output=True, timeout=10)
     for attempt in range(3):
         try:
             result = subprocess.run(
                 ["sudo", "udisksctl", "power-off", "-b", f"/dev/{parent_name}"],
-                capture_output=True, timeout=30,
+                capture_output=True, text=True, timeout=30,
             )
             if result.returncode == 0:
                 return
-        except Exception:
-            pass
-        if attempt < 2:
-            import time
-            time.sleep(1)
+            print(f"[usb] power-off attempt {attempt+1} failed: {result.stderr.strip()}", flush=True)
+        except Exception as e:
+            print(f"[usb] power-off attempt {attempt+1} error: {e}", flush=True)
+        time.sleep(2)
+    print(f"[usb] power-off failed after 3 attempts", flush=True)
+
+
+# In-memory cooldown to avoid reprocessing the same USB every 5s
+_last_process_time: dict[str, float] = {}
+_cooldown_lock = threading.Lock()
+COOLDOWN_SECONDS = 60
 
 
 def _ensure_mountpoint(info: dict) -> str | None:
@@ -177,15 +190,40 @@ def _import_files(files: list[Path], media_dir: str, cues_file: str) -> int:
     return count
 
 
-def import_usb(media_dir: str, cues_file: str, env_path: str | None = None) -> int:
+def import_usb(media_dir: str, cues_file: str, env_path: str | None = None,
+               splash_logo: str = "", splash_output: str = "") -> int:
     _load_imported_uuids()
     parts = _usb_partitions()
     total = 0
+
+    def _splash(text: str):
+        global _last_splash_text
+        if text == _last_splash_text:
+            return
+        _last_splash_text = text
+        if splash_logo and splash_output:
+            try:
+                generate_splash.generate(splash_logo, splash_output, status_text=text)
+                player.refresh_splash()
+            except Exception:
+                pass
+
+    if parts:
+        _splash("Detecting USB...")
+    else:
+        _splash("")
 
     for info in parts:
         dev_name = info.get("name", "")
         parent_name = info.get("parent", dev_name.rstrip("0123456789"))
         uuid = _get_device_uuid(dev_name)
+
+        if uuid:
+            with _cooldown_lock:
+                last = _last_process_time.get(uuid, 0)
+                if time.time() - last < COOLDOWN_SECONDS:
+                    continue
+                _last_process_time[uuid] = time.time()
 
         was_mounted = bool(info.get("mountpoint"))
         mount_point = _ensure_mountpoint(info)
@@ -195,6 +233,7 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None) -> i
         try:
             files = _scan_files(mount_point)
             if files:
+                _splash("Copying media...")
                 count = _import_files(files, media_dir, cues_file)
                 if count:
                     print(
@@ -204,13 +243,15 @@ def import_usb(media_dir: str, cues_file: str, env_path: str | None = None) -> i
                     total += count
 
             if env_path:
+                _splash("Updating network settings...")
                 import usb_config
                 usb_config.handle_partition_config(mount_point, uuid, env_path)
         finally:
             if not was_mounted:
                 _unmount(dev_name)
             if parent_name:
-                _power_off(parent_name)
+                _splash("OK to remove")
+                _power_off(parent_name, dev_name)
             if uuid:
                 with _lock:
                     _imported_uuids.add(uuid)

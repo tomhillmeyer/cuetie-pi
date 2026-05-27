@@ -63,7 +63,7 @@ CUE_FILE = Path(__file__).parent / "cues.json"
 PORT = os.getenv("PORT", "8000")
 
 
-def generate(logo_path: str, output_path: str) -> tuple[int, int]:
+def generate(logo_path: str, output_path: str, status_text: str = "") -> tuple[int, int]:
     width, height = 1920, 1080
     ips = get_primary_ip()
     if not ips:
@@ -150,6 +150,13 @@ def generate(logo_path: str, output_path: str) -> tuple[int, int]:
     ver_text = f"v{version}"
     vb = draw.textbbox((0, 0), ver_text, font=font_body)
     draw.text((width - vb[2] - 10, height - vb[3] - 10), ver_text, fill=(100, 100, 100), font=font_body)
+
+    # Bottom-center status text (above version)
+    if status_text:
+        font_status = _load_font(24)
+        sb = draw.textbbox((0, 0), status_text, font=font_status)
+        status_y = height - sb[3] - 50
+        draw.text((mid - sb[2] // 2, status_y), status_text, fill=(255, 220, 50), font=font_status)
 
     img.save(output_path, "PNG")
     return (width, height)
