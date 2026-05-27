@@ -19,7 +19,7 @@ Full API reference at [`API.md`](API.md).
 ### USB Auto-Import
 - Plug in a USB drive with media files into the Pi and they're automatically copied onto the device and added to the end of the cue list. 
 - Supports exFAT/FAT32/NTFS. Formats: JPG, PNG, GIF, MP4, MOV, WEBM.
-- **USB Config**: A `cuetiepi-config.json` file on the USB configures the Pi — WiFi network, server port, and instance name. If no config file is present, the Pi exports its current settings to the USB automatically.
+- A `cuetiepi-config.json` file on the USB configures the Pi — WiFi network, server port, and instance name. If no config file is present, the Pi exports its current settings to the USB automatically.
 
 ### Hardware Control
 - Plug a keyboard or slide advancer (DSAN PerfectCue, etc.) into the Pi and flip through the cue list.
@@ -27,7 +27,7 @@ Full API reference at [`API.md`](API.md).
   - **Left arrow** → Previous cue, wraps to last at start
 
 ### Offline Support
-- Once Cuetie Pi is installed, it can work completely offline. Use a flash drive to auto-import new content, and use a keyboard or slide advancer to flip between items.
+- Once Cuetie Pi is installed, it can work completely offline. Use a flash drive to configure network, auto-import new content, and use a keyboard or slide advancer to flip between items.
 
 
 ## Web GUI
@@ -60,17 +60,6 @@ curl -fsSL https://raw.githubusercontent.com/tomhillmeyer/cuetie-pi/main/install
 ### Updates
 Run the same install script again to update to the latest version. The installer preserves your `cues.json`, uploaded media, and `.env` configuration.
 
-
-## On-Device Splash Screen
-
-When the device boots, the connected display shows a splash screen with:
-- Cutie Pi logo and optional instance name
-- IP address and port as a QR code and text label
-- Cue list (up to 30 cues)
-- Status messages during USB import
-- Version footer
-
-The background color of status messages on the splash is `#ff0066` (accent color).
 
 ## Local Development
 
